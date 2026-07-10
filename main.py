@@ -1,7 +1,21 @@
 import pandas as pd
 import json
-import spacy 
+import spacy
+from html.parser import HTMLParser
+from bs4 import BeautifulSoup
 import pypandoc
 from pypandoc.pandoc_download import download_pandoc
 
-output = pypandoc.convert_file(r'C:\Users\matheus.umpierre\Projetos\Ambiente Python\LexML - ICP-Brasil\Resolucao152_revogada.odt', to='html', outputfile='output.html')
+ 
+def doc_to_html(filepath: str) -> str:
+    html_doc = pypandoc.convert_file(rf'{filepath}', to='html')
+    return html_doc
+    
+def parse_html(html: str):
+    soup = BeautifulSoup(html)
+    return soup
+
+
+for p in soup.find_all('p'):
+    if p.text.lower().startswith('art'):
+        print(p.text)
