@@ -35,5 +35,9 @@ composição de um identificador unívoco [[1](https://projeto.lexml.gov.br/docu
 - A solução deve ser capaz de adaptar sua lógica aos diferentes tipos de atos normativos da ICP-Brasil (DOC-ICP, Ato Normativo, Resolução, entre outros).
 - As ações de catalogar, atualizar, consultar e filtrar os dados armazenados devem ser acessíveis para usuários tecnicamente leigos.
 
+### Bibliotecas e ferramentas
+- **Streamlit**: Front-end e deploy do app finalizado;
+- **Pandas**: Processamento de dados estruturados;
+
 ## Referências
 [1] https://projeto.lexml.gov.br/documentacao/Apresentacao.pdf
