@@ -13,6 +13,15 @@ composição de um identificador unívoco [[1](https://projeto.lexml.gov.br/docu
 
 ### Diagnóstico
 
+
+
+## Objetivos
+
+1. Estruturar os atos normativos da ICP-Brasil no formato interoperável XML.
+2. Gerar uma URN (Nome Uniforme) para cada ato normativo e cada dispotivo interno dos referidos atos.
+3. Disponibiizar metadados em nível de dispositivo normativo em banco de dados estruturados.
+
+
 ### Resultados esperados
 - Controle preciso de remissões e referências documentais.
 - Redução do trabalho operacional na edição de atos normativos.
@@ -20,11 +29,11 @@ composição de um identificador unívoco [[1](https://projeto.lexml.gov.br/docu
 - Permitir interoperabilidade com repositórios e acervos normativos nacionais e internacionais. 
 - Possibilitar a validação automática de estrutura documental.
 
-## Objetivos
-1. Estruturar os atos normativos da ICP-Brasil no formato interoperável XML.
-2. Gerar uma URN (Nome Uniforme) para cada ato normativo e cada dispotivo interno dos referidos atos.
-3. Disponibiizar metadados em nível de dispositivo normativo em banco de dados estruturados.
-4. 
+## Solução
+### Requisitos
+- A solução deve ser capaz de catalogar de forma estrutura o texto legal dos atos normativos a nível de dispositivo.
+- A solução deve ser capaz de adaptar sua lógica aos diferentes tipos de atos normativos da ICP-Brasil (DOC-ICP, Ato Normativo, Resolução, entre outros).
+- As ações de catalogar, atualizar, consultar e filtrar os dados armazenados devem ser acessíveis para usuários tecnicamente leigos.
 
 ## Referências
 [1] https://projeto.lexml.gov.br/documentacao/Apresentacao.pdf
