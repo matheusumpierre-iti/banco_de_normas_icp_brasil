@@ -8,6 +8,7 @@ from pypandoc.pandoc_download import download_pandoc
  
 class ConversorHTML:
     '''Converte um arquivo de texto em um objeto HTML estruturado'''
+
     def __init__(self, filepath:str) -> None:
         self.arquivo = filepath
         self.parser = HTMLParser
@@ -35,11 +36,32 @@ class ConversorHTML:
                 artigos.append(paragrafo)
         return artigos
 
-class IdentificadorAto:
+class IdentificadorAto(ConversorHTML):
     '''Usa regras definidas para identificar o tipo de ato normativo (DOC-ICP, Resolução, Instrução Normativa)'''
+    
+    def __init__(self, filepath: str) -> None:
+        super().__init__(filepath)
+            
+        self.regras = {
+        'instrução normativa':'Instrução Normativa',
+        'resolução':'Resolução'
+        }
 
-html = ConversorHTML('testes/Resolucao152_revogada.odt')
+        self.rotulo = self.rotular_documento()
+    
+    def rotular_documento(self):
+        
+        for key, value in self.regras.items():
+            if self.paragrafos[0].lower().startswith(key):
+                rotulo = value
+            else:
+                rotulo = 'Desconhecido'
+        return rotulo   
+        
 
-print(html.formatado)
+#testes
+html = IdentificadorAto('testes/Resolucao152_revogada.odt')
+
+print(html.rotulo)
 
 
