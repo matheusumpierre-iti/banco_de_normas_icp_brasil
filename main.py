@@ -1,11 +1,18 @@
 import pandas as pd
+import sqlite3
 import spacy
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 import pypandoc
 from pypandoc.pandoc_download import download_pandoc
 
- 
+
+class BancoDeDados():
+    def __init__(self, arquivo:str) -> None:
+        self.arquivo = arquivo
+        self.db = sqlite3.connect(self.arquivo)
+        pass 
+
 class ConversorHTML:
     '''Converte um arquivo de texto em um objeto HTML estruturado'''
 
@@ -61,7 +68,20 @@ class IdentificadorAto(ConversorHTML):
 
 #testes
 html = IdentificadorAto('testes/Resolucao152_revogada.odt')
+conn = BancoDeDados(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil\testes\database.db').db
+conn.execute('''
+CREATE TABLE IF NOT EXISTS usuarios (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+nome TEXT NOT NULL,
+email TEXT NOT NULL,
+idade INTEGER
+);
+''')
 
-print(html.rotulo)
+conn.execute("INSERT INTO usuarios (nome, email, idade) VALUES ('João', 'joao@email.com', 30)")
+conn.execute("INSERT INTO usuarios (nome, email, idade) VALUES ('Maria', 'maria@email.com', 25)")
+conn.commit()
 
-
+cursor = conn.execute('SELECT * FROM usuarios')
+for linha in cursor:
+    print(linha)
