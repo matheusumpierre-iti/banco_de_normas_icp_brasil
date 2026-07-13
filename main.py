@@ -68,20 +68,3 @@ class IdentificadorAto(ConversorHTML):
 
 #testes
 html = IdentificadorAto('testes/Resolucao152_revogada.odt')
-conn = BancoDeDados(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil\testes\database.db').db
-conn.execute('''
-CREATE TABLE IF NOT EXISTS usuarios (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-nome TEXT NOT NULL,
-email TEXT NOT NULL,
-idade INTEGER
-);
-''')
-
-conn.execute("INSERT INTO usuarios (nome, email, idade) VALUES ('João', 'joao@email.com', 30)")
-conn.execute("INSERT INTO usuarios (nome, email, idade) VALUES ('Maria', 'maria@email.com', 25)")
-conn.commit()
-
-cursor = conn.execute('SELECT * FROM usuarios')
-for linha in cursor:
-    print(linha)

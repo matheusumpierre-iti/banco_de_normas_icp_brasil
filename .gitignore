@@ -50,7 +50,9 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-.testes/
+testes\03_-_RESOLUÇÕES
+testes\08_-_DOC-ICP
+testes\04_-_INSTRUÇÕES_NORMATIVAS
 
 # Translations
 *.mo
@@ -217,3 +219,4 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+testes/03_-_RESOLUÇÕES/01.04.2022/Alteradas/Resolucao171_DOC-ICP-11.docx

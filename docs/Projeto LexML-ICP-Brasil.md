@@ -38,6 +38,13 @@ composição de um identificador unívoco [[1](https://projeto.lexml.gov.br/docu
 ### Bibliotecas e ferramentas
 - **Streamlit**: Front-end e deploy do app finalizado;
 - **Pandas**: Processamento de dados estruturados;
+- **SQLite**: Solução portátil de banco de dados;
 
+### Arquitetura
+- **Módulo principal (main.py)**: contém as classes e funções responsáveis pela extração de metadados estruturados a partir dos documentos.
+- **Módulo de operações de banco de dados (db.py)** : contém as funções de SQLite
+- **Módulo de banco de dados (database.db)**: contém o banco de dados SQLite
+- **Módulo de interface (streamlit.py)**: contém a GUI construída em Streamlit
+  
 ## Referências
 [1] https://projeto.lexml.gov.br/documentacao/Apresentacao.pdf
