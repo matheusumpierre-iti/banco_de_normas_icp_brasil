@@ -50,9 +50,10 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-testes\03_-_RESOLUÇÕES
-testes\08_-_DOC-ICP
-testes\04_-_INSTRUÇÕES_NORMATIVAS
+testes\03_-_RESOLUÇÕES\
+testes\08_-_DOC-ICP\
+testes\04_-_INSTRUÇÕES_NORMATIVAS\
+arquivos_teste\
 
 # Translations
 *.mo

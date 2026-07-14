@@ -1,11 +1,20 @@
 import pandas as pd
 import sqlite3
+import webbrowser
+import requests
 import spacy
+from spacy.lang.pt.examples import sentences
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 import pypandoc
 from pypandoc.pandoc_download import download_pandoc
+from thinc.layers.dish import init
 
+
+class ModeloNLP():
+    def __init__(self) -> None:
+        self.nlp = spacy.load("pt_core_news_lg")
+        pass
 
 class BancoDeDados():
     def __init__(self, arquivo:str) -> None:
@@ -67,4 +76,6 @@ class IdentificadorAto(ConversorHTML):
         
 
 #testes
-html = IdentificadorAto('testes/Resolucao152_revogada.odt')
+nlp = ModeloNLP().nlp
+html = requests.get('https://www.gov.br/iti/pt-br/assuntos/legislacao/portarias/Portaria_35_2025.pdf')
+texto = pypandoc.convert_text(html.raw,format='pdf', to='html')
