@@ -1,7 +1,9 @@
 import pandas as pd
 import sqlite3
+import pdfplumber
 import webbrowser
 import requests
+import io
 import spacy
 from spacy.lang.pt.examples import sentences
 from html.parser import HTMLParser
@@ -78,4 +80,11 @@ class IdentificadorAto(ConversorHTML):
 #testes
 nlp = ModeloNLP().nlp
 html = requests.get('https://www.gov.br/iti/pt-br/assuntos/legislacao/portarias/Portaria_35_2025.pdf')
-texto = pypandoc.convert_text(html.raw,format='pdf', to='html')
+arquivo = io.BytesIO(html.content)
+texto_pdf = pdfplumber.open(arquivo).pages[0].extract_text()
+
+doc = nlp(texto_pdf)
+
+for token in doc:
+    if token.lemma_ == 'instituir':
+        print(token.sent)
