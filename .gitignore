@@ -50,16 +50,10 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-<<<<<<< HEAD
 03_-_RESOLUÇÕES/
 08_-_DOC-ICP/
 04_-_INSTRUÇÕES_NORMATIVAS/
-=======
-testes\03_-_RESOLUÇÕES\
-testes\08_-_DOC-ICP\
-testes\04_-_INSTRUÇÕES_NORMATIVAS\
-arquivos_teste\
->>>>>>> 2c96ac833f4bdd4848ac8c0697ca3485fcea75d8
+arquivos_teste/
 
 # Translations
 *.mo
@@ -162,6 +156,7 @@ activemq-data/
 .envrc
 .venv
 env/
+myenv/
 venv/
 ENV/
 env.bak/

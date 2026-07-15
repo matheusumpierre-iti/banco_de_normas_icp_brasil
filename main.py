@@ -1,3 +1,5 @@
+from typing import Any
+
 import pandas as pd
 import sqlite3
 import pdfplumber
@@ -10,27 +12,48 @@ from bs4 import BeautifulSoup
 import pypandoc
 from pypandoc.pandoc_download import download_pandoc
 
+#Constantes
+MODELO_NLP = spacy.load('pt_core_news_lg')
 
-class ModeloNLP:
-    def __init__(self) -> None:
-        self.nlp = spacy.load("pt_core_news_lg")
-        pass
+#Classes
 
-class DocumentoHospedado:
-    '''Lida com documentos .pdf hospedados em URL'''
+class DocumentoURL:
+    '''Lida com documentos hospedados em URL'''
     def __init__(self, url: str) -> None:
+        self.url = url
         self.html = requests.get(url)
         self.arquivo = io.BytesIO(self.html.content)
-        self.texto_pdf = pdfplumber.open(self.arquivo)    
-        self.texto_extraido = self.extrair_texto()
+        self.numero_paginas = int
+        self.texto_puro = self.__uniformizar_formato()
+
+    def __uniformizar_formato(self):
+        if self.url.endswith('.pdf'):
+            self.pdf = pdfplumber.open(self.arquivo)
+            self.numero_paginas = len(self.pdf.pages)
+            self.texto_puro = self.__extrair_texto_pdf(0, self.numero_paginas)
+        elif self.url.endswith(('.html','.htm')):
+            print('Convertendo HTML...')
+            self.texto_puro = BeautifulSoup(self.arquivo, 'html.parser').text
+            print('Conversão HTML: Sucesso')
+        else:
+            try:
+                self.texto_puro = BeautifulSoup(self.arquivo, 'html.parser').text
+                print('Conversão HTML: Sucesso')
+            except:
+                self.texto_puro = 'URL não direciona a um elemento .html ou .pdf.'
+        return self.texto_puro
     
-    def extrair_texto(self, pagina_inicial: int = 0, pagina_final: int = 1):
+    def __extrair_texto_pdf(self, pagina_inicial: int = 0, pagina_final: int = 0):
         self.texto = str()
-        for page in self.texto_pdf.pages[pagina_inicial:pagina_final]:
+        for page in self.pdf.pages[pagina_inicial:pagina_final]:
             texto_pagina = page.extract_text()
             self.texto += texto_pagina
-        return self.texto    
-        
+        return self.texto
+    
+class ProcessarNLP(DocumentoURL):
+    def __init__(self, url: str) -> None:
+        super().__init__(url)
+        self.doc = MODELO_NLP(self.texto_puro)
 
 class BancoDeDados:
     def __init__(self, arquivo:str) -> None:
@@ -38,15 +61,15 @@ class BancoDeDados:
         self.db = sqlite3.connect(self.arquivo)
         pass 
 
-class ConversorHTML(ModeloNLP):
-    '''Converte um arquivo de texto em um objeto HTML estruturado'''
+class ConversorHTML():
+    '''Converte um arquivo de texto em um objeto HTML estruturado. Herda métodos das classes ModeloNLP para a inicialização do modelo, '''
 
     def __init__(self, filepath:str) -> None:
         self.arquivo = filepath
         self.parser = HTMLParser
         self.html_doc = self.doc_to_html()
         self.convertido = self.parse_html()
-        self.doc = self.nlp(self.convertido.text)
+        self.doc = MODELO_NLP(self.convertido.text)
         self.formatado = self.convertido.prettify()
         self.paragrafos = [p.get_text() for p in self.convertido.find_all('p')]
         pass
@@ -68,22 +91,6 @@ class ConversorHTML(ModeloNLP):
             if paragrafo.lower().startswith('art.'):
                 artigos.append(paragrafo)
         return artigos
-
-class ConversorDoc(ModeloNLP, DocumentoHospedado):
-    '''Converte diversos formatos para documento NLP'''
-    def __init__(self, url:str) -> None:
-        super().__init__()
-        DocumentoHospedado.__init__(self, url)
-        self.doc = self.converter_url()
-        pass
-
-    #if url: converter_url else converter_arquivo
-
-    def converter_url(self):
-        self.doc = self.nlp(self.texto_extraido)
-        return self.doc
-
-   
 
 
 class IdentificadorAto(ConversorHTML):
@@ -117,7 +124,8 @@ class IdentificadorAto(ConversorHTML):
         
 
 #testes
-nlp = ModeloNLP().nlp
-#texto_pdf = pdfplumber.open(arquivo).pages[0].extract_text()
+print('Definindo documento')
+documento = ProcessarNLP('https://www.geeksforgeeks.org/python/private-methods-in-python/')
+print('Sucesso')
 
-print(ConversorDoc('https://www.gov.br/iti/pt-br/assuntos/legislacao/portarias/Portaria_35_2025.pdf'))
+print(documento.doc.text)
