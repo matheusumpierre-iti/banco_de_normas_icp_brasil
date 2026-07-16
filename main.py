@@ -5,6 +5,7 @@ import sqlite3
 import pdfplumber
 import requests
 import io
+import lxml
 import spacy
 from spacy.lang.pt.examples import sentences
 from html.parser import HTMLParser
@@ -16,15 +17,14 @@ from pypandoc.pandoc_download import download_pandoc
 MODELO_NLP = spacy.load('pt_core_news_lg')
 
 #Classes
-
 class DocumentoURL:
-    '''Lida com documentos hospedados em URL'''
+    '''Lida com documentos hospedados em URL. Tem o arquivo em memória, o texto puro e o doc NLP como propriedades.'''
     def __init__(self, url: str) -> None:
         self.url = url
         self.html = requests.get(url)
         self.arquivo = io.BytesIO(self.html.content)
-        self.numero_paginas = int
         self.texto_puro = self.__uniformizar_formato()
+        self.doc_nlp = MODELO_NLP(self.texto_puro)
 
     def __uniformizar_formato(self):
         if self.url.endswith('.pdf'):
@@ -33,7 +33,8 @@ class DocumentoURL:
             self.texto_puro = self.__extrair_texto_pdf(0, self.numero_paginas)
         elif self.url.endswith(('.html','.htm')):
             print('Convertendo HTML...')
-            self.texto_puro = BeautifulSoup(self.arquivo, 'html.parser').text
+            self.texto_puro = BeautifulSoup(self.arquivo, 'lxml').text
+            #self.texto_puro = pypandoc.convert_file(self.arquivo, format='html', to='plain')
             print('Conversão HTML: Sucesso')
         else:
             try:
@@ -50,12 +51,8 @@ class DocumentoURL:
             self.texto += texto_pagina
         return self.texto
     
-class ProcessarNLP(DocumentoURL):
-    def __init__(self, url: str) -> None:
-        super().__init__(url)
-        self.doc = MODELO_NLP(self.texto_puro)
-
 class BancoDeDados:
+    '''Lida com direcionamento para o banco de dados'''
     def __init__(self, arquivo:str) -> None:
         self.arquivo = arquivo
         self.db = sqlite3.connect(self.arquivo)
@@ -93,39 +90,38 @@ class ConversorHTML():
         return artigos
 
 
-class IdentificadorAto(ConversorHTML):
+class AtoNormativo_old():
     '''Usa regras definidas para identificar o tipo de ato normativo (DOC-ICP, Resolução, Instrução Normativa)'''
     
-    def __init__(self, filepath: str) -> None:
-        super().__init__(filepath)
+    def __init__(self, url) -> None:
+        super().__init__(url)
             
         self.regras = {
         'instrução normativa':'Instrução Normativa',
-        'resolução':'Resolução'
+        'resolução':'Resolução',
+        'portaria' : 'Portaria'
         }
 
         self.rotulo = self.rotular_documento()
     
     def rotular_documento(self):
         for key, value in self.regras.items():
-            if self.paragrafos[0].lower().startswith(key):
-                rotulo = value
-            else:
-                rotulo = 'Desconhecido'
-            return rotulo
-    
-    def rotular_documento_hospedado(self):
-        for key, value in self.regras.items():
-            if self.paragrafos[0].lower().startswith(key):
+            if self.doc_nlp[0].text.lower().startswith(key):
                 rotulo = value
             else:
                 rotulo = 'Desconhecido'
             return rotulo
         
+class AtoNormativo:
+    def __init__(self, arquivo:str) -> None:
+        self.url: str = arquivo
+        self.categoria = None
+        self.dispositivos = []
+        self.texto = None
+        pass
+
+    def __processar_nlp(texto):
+
+        
 
 #testes
-print('Definindo documento')
-documento = ProcessarNLP('https://www.geeksforgeeks.org/python/private-methods-in-python/')
-print('Sucesso')
-
-print(documento.doc.text)
