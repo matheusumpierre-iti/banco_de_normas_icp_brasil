@@ -7,6 +7,7 @@ import requests
 import io
 import lxml
 import spacy
+from spacy.tokens import Span
 from spacy.lang.pt.examples import sentences
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup
@@ -115,13 +116,36 @@ class AtoNormativo_old():
 class AtoNormativo:
     def __init__(self, arquivo:str) -> None:
         self.url: str = arquivo
+        self.arquivo_salvo = io.BytesIO(requests.get(self.url).content)
+        self.titulo: str = ''
         self.categoria = None
-        self.dispositivos = []
-        self.texto = None
+        self.dispositivos = set()
+        self.texto:str = self.__extrair_texto()
+        self.doc = self.__processar_nlp()
         pass
 
-    def __processar_nlp(texto):
+    def __processar_nlp(self):
+        doc = MODELO_NLP(self.texto)
+        return doc
 
-        
+    def __extrair_texto(self):
+        texto = BeautifulSoup(self.arquivo_salvo, 'lxml').text
+        return texto
 
-#testes
+class DispositivoNormativo:
+    def __init__(self) -> None:
+        self.prefixo_lex = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
+        self.atributos_lex:str = ''
+        self.ato_normativo = AtoNormativo
+        self.urn_lex = self.prefixo_lex + self.atributos_lex
+        self.categoria_dispositivo = None
+        pass
+
+
+d = AtoNormativo('https://repositorio.iti.gov.br/instrucoes-normativas/IN2025_34_DOC_ICP_15.03.htm')
+
+getter_artigo = lambda span: 'Art' in span.text
+Span.set_extension('is_artigo', getter=getter_artigo)
+
+for sent in d.doc.sents:
+    pass
