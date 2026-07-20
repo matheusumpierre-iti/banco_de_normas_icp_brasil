@@ -4,10 +4,12 @@ import pandas as pd
 import sqlite3
 import pdfplumber
 import requests
+from typing import Optional, Union
 import io
 import lxml
 import spacy
 from spacy.tokens import Span
+from pdfplumber.pdf import PDF
 from spacy.lang.pt.examples import sentences
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup
@@ -115,22 +117,40 @@ class AtoNormativo_old():
         
 class AtoNormativo:
     def __init__(self, arquivo:str) -> None:
-        self.url: str = arquivo
-        self.arquivo_salvo = io.BytesIO(requests.get(self.url).content)
-        self.titulo: str = ''
-        self.categoria = None
-        self.dispositivos = set()
-        self.texto:str = self.__extrair_texto()
-        self.doc = self.__processar_nlp()
+        self.origem = arquivo
+        self.url: Optional[str] = None
+        self.formatos_suportados = ['.pdf','.md','.txt','.odt','.doc','.docx']
+        self.arquivo_salvo: Optional[io.BytesIO] = None
+        self.pdf: Optional[PDF] = None
+        self.titulo: Optional[str] = None
+        self.categoria: Optional[str] = None
+        self.dispositivos: Optional[list] = None
+        self.texto: Optional[str] = None
+
+        self.__obter_conteudo()
         pass
 
-    def __processar_nlp(self):
-        doc = MODELO_NLP(self.texto)
-        return doc
+    def __obter_conteudo(self): 
+        if self.origem.startswith(('http://','https://')):
+            self.url = self.origem
+            self.arquivo_salvo = io.BytesIO(requests.get(self.url).content)
+            self.texto = BeautifulSoup(self.arquivo_salvo, 'lxml').text
+        elif self.origem.endswith('.pdf'):
+            self.__processar_pdf()
+        else:
+            if not self.origem.endswith(tuple(self.formatos_suportados)):
+                print('Formato não suportado')
 
-    def __extrair_texto(self):
-        texto = BeautifulSoup(self.arquivo_salvo, 'lxml').text
-        return texto
+    def __processar_pdf(self):
+        self.pdf = pdfplumber.open(self.origem)
+        self.texto = ''
+        for page in self.pdf.pages[0:(len(self.pdf.pages)+1)]:
+                texto_pagina = page.extract_text()
+                self.texto += texto_pagina
+        return self.texto
+
+    def __processar_texto(self):
+        pass
 
 class DispositivoNormativo:
     def __init__(self) -> None:
@@ -142,10 +162,9 @@ class DispositivoNormativo:
         pass
 
 
-d = AtoNormativo('https://repositorio.iti.gov.br/instrucoes-normativas/IN2025_34_DOC_ICP_15.03.htm')
+d = AtoNormativo(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil\testes\03_-_RESOLUÇÕES\Site Novo\Resolucao1_revogada.pdf')
 
 getter_artigo = lambda span: 'Art' in span.text
 Span.set_extension('is_artigo', getter=getter_artigo)
 
-for sent in d.doc.sents:
-    pass
+print(d.texto)
