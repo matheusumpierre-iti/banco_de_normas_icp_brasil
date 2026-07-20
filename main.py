@@ -8,7 +8,7 @@ from typing import Optional, Union
 import io
 import lxml
 import spacy
-from spacy.tokens import Span
+from spacy.tokens import Span, Token, Doc
 from pdfplumber.pdf import PDF
 from spacy.lang.pt.examples import sentences
 from html.parser import HTMLParser
@@ -16,12 +16,25 @@ from bs4 import BeautifulSoup
 import pypandoc
 from pypandoc.pandoc_download import download_pandoc
 
+#Extensões de classes
+artigo_getter = lambda token: token.text == 'Art.'
+paragrafo_getter = lambda token: token.text == '§'
+
+Token.set_extension('is_artigo', getter=artigo_getter)
+Token.set_extension('is_paragrafo', getter=paragrafo_getter)
+
 #Constantes
 MODELO_NLP = spacy.load('pt_core_news_lg')
 
+TIPO_ATO_NORMATIVO = {
+        'instrução normativa':'Instrução Normativa',
+        'resolução':'Resolução',
+        'portaria' : 'Portaria'
+        }
+
 #Classes        
 class AtoNormativo:
-    def __init__(self, arquivo:str) -> None:
+    def __init__(self, arquivo:str, nlp:bool = False) -> None:
         self.origem = arquivo
         self.url: Optional[str] = None
         self.formatos_suportados = ['.pdf','.md','.txt','.odt','.doc','.docx']
@@ -31,11 +44,14 @@ class AtoNormativo:
         self.categoria: Optional[str] = None
         self.dispositivos: Optional[list] = None
         self.texto: str
-
+        self.doc: Any = None
         self.__obter_conteudo()
+        if nlp == True:
+            self.__processar_nlp()
+            self.__classificar_ato_normativo()
         pass
 
-    def processar_nlp(self):
+    def __processar_nlp(self):
         self.doc = MODELO_NLP(self.texto)
         return self.doc
 
@@ -64,17 +80,35 @@ class AtoNormativo:
         html_doc = pypandoc.convert_file(rf'{self.origem}', to='html')
         self.texto = BeautifulSoup(html_doc, 'lxml').text
         return self.texto
+    
+    def __classificar_ato_normativo(self):
+        for token in self.doc[0:10]:
+            if token.text.lower() in TIPO_ATO_NORMATIVO.keys():
+                self.categoria = TIPO_ATO_NORMATIVO[token.text.lower()]
+                break
+            else:
+                self.categoria = 'Desconhecida'
+        return self.categoria 
+    
+    def __classificar_dispositivos(self):
+        DispositivoNormativo(self.origem)
+        pass
+
 
 @dataclass
-class DispositivoNormativo:
-    tipo: str
-    urn: Optional[str]
-    prefixo_lex: str = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
-    
+class DispositivoNormativo(AtoNormativo):
+    arquivo_origem: str
+    id_dispositivo: Optional[str] = None
+    tipo: Optional[str] = None
+    prefixo_urn: str = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
+    urn: Optional[str] = None
 
-d = AtoNormativo(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil\testes\Resolucao152_revogada.odt')
+#testes
+d = AtoNormativo(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil\testes\04_-_INSTRUÇÕES_NORMATIVAS\Site Novo\IN2005_01_revogada.pdf', nlp=True)
+doc = d.doc
 
-getter_artigo = lambda span: 'Art' in span.text
-Span.set_extension('is_artigo', getter=getter_artigo)
+for token in doc:
+    if token._.is_artigo:
+        print('lex:br:instituto.federal.tecnologia.informacao:icp.brasil:' + 'art:' + f'artigo_{token.nbor(1).text[0]}')
 
-print(d.processar_nlp())
+print(d.categoria)
