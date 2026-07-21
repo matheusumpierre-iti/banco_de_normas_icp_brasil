@@ -10,8 +10,6 @@ import lxml
 import spacy
 from spacy.tokens import Span, Token, Doc
 from pdfplumber.pdf import PDF
-from spacy.lang.pt.examples import sentences
-from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 import pypandoc
 from pypandoc.pandoc_download import download_pandoc
@@ -28,6 +26,7 @@ MODELO_NLP = spacy.load('pt_core_news_lg')
 
 TIPO_ATO_NORMATIVO = {
         'instrução normativa':'Instrução Normativa',
+        'instrução':'Instrução Normativa',
         'resolução':'Resolução',
         'portaria' : 'Portaria'
         }
@@ -55,7 +54,7 @@ class AtoNormativo:
         self.doc = MODELO_NLP(self.texto)
         return self.doc
 
-    def __obter_conteudo(self): 
+    def old__obter_conteudo(self): 
         if self.origem.startswith(('http://','https://')):
             self.url = self.origem
             self.arquivo_salvo = io.BytesIO(requests.get(self.url).content)
@@ -68,8 +67,28 @@ class AtoNormativo:
             if not self.origem.endswith(tuple(self.formatos_suportados)):
                 print('Formato não suportado')
 
-    def __processar_pdf(self):
-        self.pdf = pdfplumber.open(self.origem)
+    def __obter_conteudo(self): 
+        if self.origem.startswith(('http://','https://')):
+            if not self.origem.endswith('.pdf'):
+                self.url = self.origem
+                self.arquivo_salvo = io.BytesIO(requests.get(self.url).content)
+                self.texto = BeautifulSoup(self.arquivo_salvo, 'lxml').text
+            else:
+                self.url = self.origem
+                self.__processar_pdf(de_url = True)
+        elif self.origem.endswith('.pdf'):
+            self.__processar_pdf()
+        elif self.origem.endswith(tuple(self.formatos_suportados)):
+            self.__processar_texto_doc()
+        else:
+            if not self.origem.endswith(tuple(self.formatos_suportados)):
+                print('Formato não suportado')
+
+    def __processar_pdf(self, de_url:bool = False):
+        if de_url == False:
+            self.pdf = pdfplumber.open(self.origem)
+        else:
+            self.pdf = pdfplumber.open(io.BytesIO(requests.get(self.url).content))
         self.texto = ''
         for page in self.pdf.pages[0:(len(self.pdf.pages)+1)]:
                 texto_pagina = page.extract_text()
@@ -94,7 +113,6 @@ class AtoNormativo:
         DispositivoNormativo(self.origem)
         pass
 
-
 @dataclass
 class DispositivoNormativo(AtoNormativo):
     arquivo_origem: str
@@ -103,12 +121,19 @@ class DispositivoNormativo(AtoNormativo):
     prefixo_urn: str = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
     urn: Optional[str] = None
 
+    def definir_urn(self):
+        for token in doc:
+            if token._.is_artigo:
+                self.urn = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:' + 'art:' + f'artigo_{token.nbor(1).text[0]}'
+        return self.urn
+
+
 #testes
-d = AtoNormativo(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil\testes\04_-_INSTRUÇÕES_NORMATIVAS\Site Novo\IN2005_01_revogada.pdf', nlp=True)
+d = AtoNormativo(r'https://www.gov.br/iti/pt-br/assuntos/legislacao/documentos-principais/resolucao180_doc-icp-17_compilada.pdf', nlp=True)
 doc = d.doc
 
-for token in doc:
-    if token._.is_artigo:
-        print('lex:br:instituto.federal.tecnologia.informacao:icp.brasil:' + 'art:' + f'artigo_{token.nbor(1).text[0]}')
 
-print(d.categoria)
+for token in doc:
+    if token.pos_ == 'VERB':
+        print(token.sent)
+        break
