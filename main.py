@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 import sqlite3
 import pdfplumber
+import html5lib
 import requests
 from typing import Optional, Union
 import io
@@ -30,6 +31,8 @@ TIPO_ATO_NORMATIVO = {
         'resolução':'Resolução',
         'portaria' : 'Portaria'
         }
+
+PREFIXO_URN = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
 
 #Classes        
 class AtoNormativo:
@@ -73,6 +76,7 @@ class AtoNormativo:
                 self.url = self.origem
                 self.arquivo_salvo = io.BytesIO(requests.get(self.url).content)
                 self.texto = BeautifulSoup(self.arquivo_salvo, 'lxml').text
+                return self.texto
             else:
                 self.url = self.origem
                 self.__processar_pdf(de_url = True)
@@ -110,30 +114,66 @@ class AtoNormativo:
         return self.categoria 
     
     def __classificar_dispositivos(self):
-        DispositivoNormativo(self.origem)
+        
         pass
 
-@dataclass
-class DispositivoNormativo(AtoNormativo):
-    arquivo_origem: str
-    id_dispositivo: Optional[str] = None
-    tipo: Optional[str] = None
-    prefixo_urn: str = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
-    urn: Optional[str] = None
 
-    def definir_urn(self):
-        for token in doc:
-            if token._.is_artigo:
-                self.urn = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:' + 'art:' + f'artigo_{token.nbor(1).text[0]}'
+class DispositivoNormativo():
+    def __init__(self, arquivo_origem:str, id_dispositivo:str, tipo:str, sufixo_urn:str) -> None:
+        self.arquivo_origem:str = arquivo_origem
+        self.id_dispositivo:str = id_dispositivo
+        self.tipo:str = tipo
+        self.prefixo_urn: str = PREFIXO_URN
+        self.sufixo_urn: str = sufixo_urn
+        self.urn: Optional[str] = self.__definir_urn()
+        pass
+
+    def __definir_urn(self):
+        self.urn = self.prefixo_urn + self.sufixo_urn
         return self.urn
+
+    
 
 
 #testes
-d = AtoNormativo(r'https://www.gov.br/iti/pt-br/assuntos/legislacao/documentos-principais/resolucao180_doc-icp-17_compilada.pdf', nlp=True)
+d = AtoNormativo(r'https://repositorio.iti.gov.br/resolucoes/Resolucao219_altera_endereco.htm', nlp=True)
 doc = d.doc
 
+def identificar_artigos(doc: Any, incluir_paragrafos:bool = False):
 
-for token in doc:
-    if token.pos_ == 'VERB':
-        print(token.sent)
-        break
+    lista_artigos = []
+    artigos_paragrafos = {}
+
+    for token in doc:
+        if token.text == 'Art.':
+            inicio = token.i
+            for i in range(inicio, len(doc), 1):
+                if doc[i].text == '.':
+                    final = doc[i+1].i
+                    break
+            texto_artigo = doc[inicio: final]
+            indice_artigo = texto_artigo[0:2]
+            urn_artigo = f'{indice_artigo.text.lower()[0:3]}' + '_' + f'{indice_artigo.text[5]}'
+            artigo = DispositivoNormativo(doc[0:5], indice_artigo, 'Artigo',f'{urn_artigo}')
+            lista_artigos.append(artigo)
+            artigos_paragrafos[texto_artigo] = []
+
+            if incluir_paragrafos == True:
+                for artigo in lista_artigos:
+                    for token in artigo:
+                        if token.text.startswith('§') or token.text == 'Parágrafo':
+                            inicio_paragrafo = token.i
+                            for i in range(inicio_paragrafo, len(doc), 1):
+                                if doc[i].text == '.':
+                                    final_paragrafo = doc[i+1].i
+                                    break
+                            paragrafo = doc[inicio_paragrafo:final_paragrafo]
+                            artigos_paragrafos[artigo] = paragrafo
+
+    return lista_artigos
+
+#soup = BeautifulSoup(requests.get('https://repositorio.iti.gov.br/resolucoes/Resolucao202_revogacao_estado_emergencia.htm').content, 'html5lib')
+#print(soup.find(lambda x: x.has_attr('class') and 't m0 x0' in x['class']))
+
+print([artigo.urn for artigo in identificar_artigos(doc)])
+
