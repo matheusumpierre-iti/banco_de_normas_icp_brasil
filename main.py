@@ -9,7 +9,8 @@ from typing import Optional, Union
 import io
 import lxml
 import spacy
-from spacy.tokens import Span, Token, Doc
+from spacy.tokens import Token
+from spacy.tokens import Doc
 from pdfplumber.pdf import PDF
 from bs4 import BeautifulSoup
 import pypandoc
@@ -119,16 +120,19 @@ class AtoNormativo:
 
 
 class DispositivoNormativo():
-    def __init__(self, arquivo_origem:str, id_dispositivo:str, tipo:str, sufixo_urn:str) -> None:
-        self.arquivo_origem:str = arquivo_origem
+    def __init__(self, arquivo_origem:Doc, id_dispositivo:str, tipo:str, sufixo_urn:str) -> None:
+        self.arquivo_origem:Doc = arquivo_origem
         self.id_dispositivo:str = id_dispositivo
         self.tipo:str = tipo
         self.prefixo_urn: str = PREFIXO_URN
         self.sufixo_urn: str = sufixo_urn
-        self.urn: Optional[str] = self.__definir_urn()
+        self.urn: str = self.__definir_urn()
         pass
 
-    def __definir_urn(self):
+    def __str__(self) -> str:
+        return f'{self.urn}'
+
+    def __definir_urn(self) -> str:
         self.urn = self.prefixo_urn + self.sufixo_urn
         return self.urn
 
@@ -139,7 +143,7 @@ class DispositivoNormativo():
 d = AtoNormativo(r'https://repositorio.iti.gov.br/resolucoes/Resolucao219_altera_endereco.htm', nlp=True)
 doc = d.doc
 
-def identificar_artigos(doc: Any, incluir_paragrafos:bool = False):
+def identificar_artigos(doc: Doc, incluir_paragrafos:bool = False):
 
     lista_artigos = []
     artigos_paragrafos = {}
@@ -154,7 +158,7 @@ def identificar_artigos(doc: Any, incluir_paragrafos:bool = False):
             texto_artigo = doc[inicio: final]
             indice_artigo = texto_artigo[0:2]
             urn_artigo = f'{indice_artigo.text.lower()[0:3]}' + '_' + f'{indice_artigo.text[5]}'
-            artigo = DispositivoNormativo(doc[0:5], indice_artigo, 'Artigo',f'{urn_artigo}')
+            artigo = DispositivoNormativo(doc[0:5].as_doc(), indice_artigo.text, 'Artigo',f'{urn_artigo}')
             lista_artigos.append(artigo)
             artigos_paragrafos[texto_artigo] = []
 
@@ -175,5 +179,6 @@ def identificar_artigos(doc: Any, incluir_paragrafos:bool = False):
 #soup = BeautifulSoup(requests.get('https://repositorio.iti.gov.br/resolucoes/Resolucao202_revogacao_estado_emergencia.htm').content, 'html5lib')
 #print(soup.find(lambda x: x.has_attr('class') and 't m0 x0' in x['class']))
 
-print([artigo.urn for artigo in identificar_artigos(doc)])
+for artigo in identificar_artigos(doc):
+    print(artigo)
 
