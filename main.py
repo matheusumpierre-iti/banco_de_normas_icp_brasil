@@ -45,13 +45,14 @@ class AtoNormativo:
         self.pdf: Optional[PDF] = None
         self.titulo: Optional[str] = None
         self.categoria: Optional[str] = None
-        self.dispositivos: dict = {'Conteúdo':'Tipo'}
+        self.dispositivos: list = []
         self.texto: str
         self.doc: Any = None
         self.__obter_conteudo()
         if nlp == True:
             self.__processar_nlp()
             self.__classificar_ato_normativo()
+            self.__classificar_dispositivos()
         pass
 
     def __processar_nlp(self):
@@ -121,13 +122,17 @@ class AtoNormativo:
 
         dispositivos_encontrados = {}
 
+        dispositivos_classificados = []
+
         for token in self.doc:
             if token.text in prefixos.keys():
-                span = self.doc[token.text.i : token.text.i + 5]
-                dispositivos_encontrados[span] = prefixos[span[0].text]
-        return dispositivos_encontrados
-
-    def 
+                span = self.doc[token.i : token.i + 5]
+                dispositivos_encontrados[span.text] = prefixos[span[0].text]
+        for chave, valor in dispositivos_encontrados.items():
+            dispositivo = DispositivoNormativo(chave, MODELO_NLP('teste'), 'A definir', valor, self.origem[0:10])
+            dispositivos_classificados.append(dispositivo)
+        self.dispositivos = dispositivos_classificados
+        return self.dispositivos
 
 
 class DispositivoNormativo():
@@ -185,8 +190,8 @@ class DispositivoNormativo():
                     elif limitador > 100:
                         final_paragrafo = doc[limitador].i
                         break
-            texto_paragrafo = doc[inicio_paragrafo : final_paragrafo]
-            paragrafos.append(texto_paragrafo)
+                texto_paragrafo = self.nlp[inicio_paragrafo : final_paragrafo]
+                paragrafos.append(texto_paragrafo)
         return paragrafos
 
 
@@ -194,10 +199,10 @@ class DispositivoNormativo():
 
 
 #testes
-d = AtoNormativo(r'https://repositorio.iti.gov.br/resolucoes/Resolucao219_altera_endereco.htm', nlp=True)
+d = AtoNormativo(r'https://repositorio.iti.gov.br/resolucoes/Resolucao219_altera_endereco.htm', True)
 doc = d.doc
 
-def classificar_dispositivos(origem: Doc):
+'''def classificar_dispositivos(origem: Doc):
         prefixos = {
             'Art.':'Artigo'
         }
@@ -210,6 +215,6 @@ def classificar_dispositivos(origem: Doc):
                 dispositivos[span] = prefixos[span[0].text]
         return dispositivos
 
-teste = classificar_dispositivos(MODELO_NLP('Art. 1º diz a coisa x e Art. 2º diz a coisa y'))
+teste = classificar_dispositivos(MODELO_NLP('Art. 1º diz a coisa x e Art. 2º diz a coisa y'))'''
 
-print(teste)
+print(d.dispositivos)
