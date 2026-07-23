@@ -27,10 +27,11 @@ Token.set_extension('is_paragrafo', getter=paragrafo_getter)
 MODELO_NLP = spacy.load('pt_core_news_lg')
 
 TIPO_ATO_NORMATIVO = {
-        'instrução normativa':'Instrução Normativa',
-        'instrução':'Instrução Normativa',
-        'resolução':'Resolução',
-        'portaria' : 'Portaria'
+        'instrução normativa':'instrucao.normativa',
+        'instrução':'instrucao.normativa',
+        'resolução':'resolucao',
+        'portaria' : 'portaria',
+        'ofício' : 'portaria'
         }
 
 PREFIXO_URN = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
@@ -53,11 +54,31 @@ class AtoNormativo:
             self.__processar_nlp()
             self.__classificar_ato_normativo()
             self.__classificar_dispositivos()
+            self.__obter_titulo()
         pass
 
     def __processar_nlp(self):
         self.doc = MODELO_NLP(self.texto)
         return self.doc
+
+    def __obter_titulo(self):
+        for key in TIPO_ATO_NORMATIVO.keys():
+            for token in self.doc:
+                if key in token.text:
+                    inicio_titulo = token.idx
+                    tipo_ato = TIPO_ATO_NORMATIVO[key].title()
+                    pass
+                    for token in self.doc[inicio_titulo:]:
+                        numero_ato = 0
+                        if 'Nº' in token.text:
+                            try:
+                                numero_ato = token.nbor().text
+                            except:
+                                numero_ato = 'desconhecido'
+                            break
+                    self.titulo = tipo_ato + '_' + numero_ato
+        return self.titulo
+
 
     def old__obter_conteudo(self): 
         if self.origem.startswith(('http://','https://')):
@@ -74,15 +95,17 @@ class AtoNormativo:
 
     def __obter_conteudo(self): 
         if self.origem.startswith(('http://','https://')):
-            if not self.origem.endswith('.pdf'):
+            if not self.origem.endswith('pdf'):
+                print('Obtendo conteúdo de página web;')
                 self.url = self.origem
                 self.arquivo_salvo = io.BytesIO(requests.get(self.url).content)
                 self.texto = BeautifulSoup(self.arquivo_salvo, 'lxml').text
                 return self.texto
             else:
+                print('Obtendo conteúdo de pdf hospedado na web.')
                 self.url = self.origem
                 self.__processar_pdf(de_url = True)
-        elif self.origem.endswith('.pdf'):
+        elif self.origem.endswith('pdf'):
             self.__processar_pdf()
         elif self.origem.endswith(tuple(self.formatos_suportados)):
             self.__processar_texto_doc()
@@ -117,7 +140,9 @@ class AtoNormativo:
     
     def __classificar_dispositivos(self):
         prefixos = {
-            'Art.':'Artigo'
+            'Art.':'artigo',
+            '§':'paragrafo',
+            'Parágrafo':'paragrafo'
         }
 
         dispositivos_encontrados = {}
@@ -127,13 +152,18 @@ class AtoNormativo:
         for token in self.doc:
             if token.text in prefixos.keys():
                 span = self.doc[token.i : token.i + 5]
+                indice_dispositivo = ''
+                for i in range(0, len(span[1].text)):
+                    if span[1].text[i].isdigit():
+                        indice_dispositivo += span[1].text[i]
+                    elif 'único' in span.text:
+                        indice_dispositivo = 'unico'
                 dispositivos_encontrados[span.text] = prefixos[span[0].text]
-        for chave, valor in dispositivos_encontrados.items():
-            dispositivo = DispositivoNormativo(chave, MODELO_NLP('teste'), 'A definir', valor, self.origem[0:10])
-            dispositivos_classificados.append(dispositivo)
+                urn_sufixo = f'{prefixos[span[0].text].lower()}.{indice_dispositivo}'
+                dispositivo = DispositivoNormativo(span, self.doc, span[0].text, prefixos[span[0].text], urn_sufixo)
+                dispositivos_classificados.append(dispositivo)
         self.dispositivos = dispositivos_classificados
         return self.dispositivos
-
 
 class DispositivoNormativo():
     def __init__(self, texto:str, arquivo_origem:Doc, id_dispositivo:str, tipo:str, sufixo_urn:str) -> None:
@@ -199,7 +229,7 @@ class DispositivoNormativo():
 
 
 #testes
-d = AtoNormativo(r'https://repositorio.iti.gov.br/resolucoes/Resolucao219_altera_endereco.htm', True)
+d = AtoNormativo(r'https://www.gov.br/iti/pt-br/central-de-conteudo/16-2017-pdf')
 doc = d.doc
 
 '''def classificar_dispositivos(origem: Doc):
@@ -217,4 +247,4 @@ doc = d.doc
 
 teste = classificar_dispositivos(MODELO_NLP('Art. 1º diz a coisa x e Art. 2º diz a coisa y'))'''
 
-print(d.dispositivos)
+print(d.texto)
