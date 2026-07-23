@@ -45,7 +45,7 @@ class AtoNormativo:
         self.pdf: Optional[PDF] = None
         self.titulo: Optional[str] = None
         self.categoria: Optional[str] = None
-        self.dispositivos: Optional[list] = None
+        self.dispositivos: dict = {'Conteúdo':'Tipo'}
         self.texto: str
         self.doc: Any = None
         self.__obter_conteudo()
@@ -115,26 +115,80 @@ class AtoNormativo:
         return self.categoria 
     
     def __classificar_dispositivos(self):
-        
-        pass
+        prefixos = {
+            'Art.':'Artigo'
+        }
+
+        dispositivos_encontrados = {}
+
+        for token in self.doc:
+            if token.text in prefixos.keys():
+                span = self.doc[token.text.i : token.text.i + 5]
+                dispositivos_encontrados[span] = prefixos[span[0].text]
+        return dispositivos_encontrados
+
+    def 
 
 
 class DispositivoNormativo():
-    def __init__(self, arquivo_origem:Doc, id_dispositivo:str, tipo:str, sufixo_urn:str) -> None:
+    def __init__(self, texto:str, arquivo_origem:Doc, id_dispositivo:str, tipo:str, sufixo_urn:str) -> None:
         self.arquivo_origem:Doc = arquivo_origem
+        self.nlp: Doc = MODELO_NLP('NLP não processado')
+        self.texto = texto
         self.id_dispositivo:str = id_dispositivo
         self.tipo:str = tipo
         self.prefixo_urn: str = PREFIXO_URN
         self.sufixo_urn: str = sufixo_urn
         self.urn: str = self.__definir_urn()
+        self.paragrafos: Optional[list] = []
+
+        if self.tipo == 'Artigo':
+            self.__nlp_dispositivo()
+            self.__enumerar_artigo()
+            self.__identificar_paragrafos()
         pass
 
     def __str__(self) -> str:
         return f'{self.urn}'
 
+    def __nlp_dispositivo(self) -> Doc:
+        nlp = MODELO_NLP(self.texto)
+        return nlp
+
     def __definir_urn(self) -> str:
         self.urn = self.prefixo_urn + self.sufixo_urn
         return self.urn
+
+    def __enumerar_artigo(self) -> str:
+        numero_artigo: str = ''
+        limitador = 0
+        for token in self.nlp:
+            limitador += 1
+            if token.is_digit:
+                numero_artigo = token.text
+                break
+            elif limitador > 10:
+                numero_artigo = 'sem_numero'
+        return numero_artigo
+
+    def __identificar_paragrafos(self) -> list:
+        paragrafos = []
+        for token in self.nlp:
+            if token.text.startswith('§') or token.text == 'Parágrafo':
+                inicio_paragrafo = token.i
+                limitador = 0
+                for i in range(inicio_paragrafo, len(doc), 1):
+                    limitador += 1
+                    if doc[i].text in ['Art.', '§', 'Parágrafo', '.']:
+                        final_paragrafo = doc[i].i
+                        break
+                    elif limitador > 100:
+                        final_paragrafo = doc[limitador].i
+                        break
+            texto_paragrafo = doc[inicio_paragrafo : final_paragrafo]
+            paragrafos.append(texto_paragrafo)
+        return paragrafos
+
 
     
 
@@ -143,42 +197,19 @@ class DispositivoNormativo():
 d = AtoNormativo(r'https://repositorio.iti.gov.br/resolucoes/Resolucao219_altera_endereco.htm', nlp=True)
 doc = d.doc
 
-def identificar_artigos(doc: Doc, incluir_paragrafos:bool = False):
+def classificar_dispositivos(origem: Doc):
+        prefixos = {
+            'Art.':'Artigo'
+        }
 
-    lista_artigos = []
-    artigos_paragrafos = {}
+        dispositivos = {}
 
-    for token in doc:
-        if token.text == 'Art.':
-            inicio = token.i
-            for i in range(inicio, len(doc), 1):
-                if doc[i].text == '.':
-                    final = doc[i+1].i
-                    break
-            texto_artigo = doc[inicio: final]
-            indice_artigo = texto_artigo[0:2]
-            urn_artigo = f'{indice_artigo.text.lower()[0:3]}' + '_' + f'{indice_artigo.text[5]}'
-            artigo = DispositivoNormativo(doc[0:5].as_doc(), indice_artigo.text, 'Artigo',f'{urn_artigo}')
-            lista_artigos.append(artigo)
-            artigos_paragrafos[texto_artigo] = []
+        for token in origem:
+            if token.text in prefixos.keys():
+                span = origem[token.i : token.i + 5]
+                dispositivos[span] = prefixos[span[0].text]
+        return dispositivos
 
-            if incluir_paragrafos == True:
-                for artigo in lista_artigos:
-                    for token in artigo:
-                        if token.text.startswith('§') or token.text == 'Parágrafo':
-                            inicio_paragrafo = token.i
-                            for i in range(inicio_paragrafo, len(doc), 1):
-                                if doc[i].text == '.':
-                                    final_paragrafo = doc[i+1].i
-                                    break
-                            paragrafo = doc[inicio_paragrafo:final_paragrafo]
-                            artigos_paragrafos[artigo] = paragrafo
+teste = classificar_dispositivos(MODELO_NLP('Art. 1º diz a coisa x e Art. 2º diz a coisa y'))
 
-    return lista_artigos
-
-#soup = BeautifulSoup(requests.get('https://repositorio.iti.gov.br/resolucoes/Resolucao202_revogacao_estado_emergencia.htm').content, 'html5lib')
-#print(soup.find(lambda x: x.has_attr('class') and 't m0 x0' in x['class']))
-
-for artigo in identificar_artigos(doc):
-    print(artigo)
-
+print(teste)
