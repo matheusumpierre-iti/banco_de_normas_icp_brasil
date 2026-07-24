@@ -11,6 +11,9 @@ import lxml
 import spacy
 from spacy.tokens import Token
 from spacy.tokens import Doc
+from spacy.matcher import Matcher
+from spacy.matcher import PhraseMatcher
+from spacy.training import Example
 from pdfplumber.pdf import PDF
 from bs4 import BeautifulSoup
 import pypandoc
@@ -22,6 +25,8 @@ paragrafo_getter = lambda token: token.text == '§'
 
 Token.set_extension('is_artigo', getter=artigo_getter)
 Token.set_extension('is_paragrafo', getter=paragrafo_getter)
+
+
 
 #Constantes
 MODELO_NLP = spacy.load('pt_core_news_lg')
@@ -76,7 +81,7 @@ class AtoNormativo:
                             except:
                                 numero_ato = 'desconhecido'
                             break
-                    self.titulo = tipo_ato + '_' + numero_ato
+                        self.titulo = tipo_ato + '_' + str(numero_ato)
         return self.titulo
 
 
@@ -229,8 +234,10 @@ class DispositivoNormativo():
 
 
 #testes
-d = AtoNormativo(r'https://www.gov.br/iti/pt-br/central-de-conteudo/16-2017-pdf')
+d = AtoNormativo(r'https://repositorio.iti.gov.br/instrucoes-normativas/IN2026_37_altera_DOC-ICP-05.03.htm', True)
+p = AtoNormativo(r'https://repositorio.iti.gov.br/instrucoes-normativas/IN2026_36_identificacao_requerente.htm', True)
 doc = d.doc
+p_doc = p.doc
 
 '''def classificar_dispositivos(origem: Doc):
         prefixos = {
@@ -247,4 +254,15 @@ doc = d.doc
 
 teste = classificar_dispositivos(MODELO_NLP('Art. 1º diz a coisa x e Art. 2º diz a coisa y'))'''
 
-print(d.texto)
+matcher = PhraseMatcher(MODELO_NLP.vocab, attr='SHAPE')
+exemplo = MODELO_NLP('Art. 1º. Todas as leis devem estar listadas desta forma.')
+pattern = [{'TEXT':{'FUZZY4': {'IN': ['Art. 1º', 'Art. 11']} }}]
+matcher.add('ATO', [exemplo])
+
+for match_id, start, end in matcher(p_doc):
+    span = p_doc[start:end]
+    print(span)
+
+
+
+
