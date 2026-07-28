@@ -92,3 +92,10 @@ class old_AtoNormativo():
             else:
                 rotulo = 'Desconhecido'
             return rotulo
+
+class ExemploAtoNormativo():
+    def __init__(self) -> None:
+        self.texto_artigo = 'Art. 2º  Fica aprovada a versão 4.0 do Documento Procedimentos para Identificação Biométrica na ICP-Brasil (DOC-ICP-05.03);'
+        self.texto_paragrafo = '§1º  Os requisitos e procedimentos deste Regulamento não são exaustivos.'
+        self.texto_inciso = 'I -   comparecimento presencial;'
+        pass

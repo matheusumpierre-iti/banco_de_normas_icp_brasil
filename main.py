@@ -1,4 +1,5 @@
 from typing import Any
+from classes import ExemploAtoNormativo
 from dataclasses import dataclass, field
 import pandas as pd
 import sqlite3
@@ -49,7 +50,7 @@ class AtoNormativo:
         self.formatos_suportados = ['.pdf','.md','.txt','.odt','.doc','.docx']
         self.arquivo_salvo: Optional[io.BytesIO] = None
         self.pdf: Optional[PDF] = None
-        self.titulo: Optional[str] = None
+        self.titulo: str = ''
         self.categoria: Optional[str] = None
         self.dispositivos: list = []
         self.texto: str
@@ -57,9 +58,10 @@ class AtoNormativo:
         self.__obter_conteudo()
         if nlp == True:
             self.__processar_nlp()
-            self.__classificar_ato_normativo()
-            self.__classificar_dispositivos()
             self.__obter_titulo()
+            self.__classificar_ato_normativo()
+            self.dispositivos = self.__classificar_dispositivos()
+            
         pass
 
     def __processar_nlp(self):
@@ -67,21 +69,18 @@ class AtoNormativo:
         return self.doc
 
     def __obter_titulo(self):
-        for key in TIPO_ATO_NORMATIVO.keys():
-            for token in self.doc:
-                if key in token.text:
-                    inicio_titulo = token.idx
-                    tipo_ato = TIPO_ATO_NORMATIVO[key].title()
-                    pass
-                    for token in self.doc[inicio_titulo:]:
-                        numero_ato = 0
-                        if 'Nº' in token.text:
-                            try:
-                                numero_ato = token.nbor().text
-                            except:
-                                numero_ato = 'desconhecido'
-                            break
-                        self.titulo = tipo_ato + '_' + str(numero_ato)
+        for token in self.doc:
+            if token.text.lower() in TIPO_ATO_NORMATIVO.keys():
+                prefixo_titulo = TIPO_ATO_NORMATIVO[token.text.lower()]
+                sufixo_titulo = ''
+                span = self.doc[token.i:token.i+5]
+                for i in range(0, len(span.text)):
+                    if span.text[i].isdigit():
+                        sufixo_titulo += span.text[i]
+                self.titulo = prefixo_titulo +'.'+sufixo_titulo
+                break
+            else:
+                self.titulo = 'Desconhecido'
         return self.titulo
 
 
@@ -145,9 +144,7 @@ class AtoNormativo:
     
     def __classificar_dispositivos(self):
         prefixos = {
-            'Art.':'artigo',
-            '§':'paragrafo',
-            'Parágrafo':'paragrafo'
+            'Art.':'artigo'
         }
 
         dispositivos_encontrados = {}
@@ -156,37 +153,38 @@ class AtoNormativo:
 
         for token in self.doc:
             if token.text in prefixos.keys():
-                span = self.doc[token.i : token.i + 5]
-                indice_dispositivo = ''
+                span = self.doc[token.i : token.i + 15]
+                indice_doc = token.i
+                indice_texto = ''
                 for i in range(0, len(span[1].text)):
                     if span[1].text[i].isdigit():
-                        indice_dispositivo += span[1].text[i]
+                        indice_texto += span[1].text[i]
                     elif 'único' in span.text:
-                        indice_dispositivo = 'unico'
+                        indice_texto = 'unico'
                 dispositivos_encontrados[span.text] = prefixos[span[0].text]
-                urn_sufixo = f'{prefixos[span[0].text].lower()}.{indice_dispositivo}'
-                dispositivo = DispositivoNormativo(span, self.doc, span[0].text, prefixos[span[0].text], urn_sufixo)
+                dispositivo = DispositivoNormativo(texto=span.text, origem=self, tipo=prefixos[span[0].text], indice_texto=indice_texto, indice_doc=indice_doc)
                 dispositivos_classificados.append(dispositivo)
         self.dispositivos = dispositivos_classificados
         return self.dispositivos
 
 class DispositivoNormativo():
-    def __init__(self, texto:str, arquivo_origem:Doc, id_dispositivo:str, tipo:str, sufixo_urn:str) -> None:
-        self.arquivo_origem:Doc = arquivo_origem
+    def __init__(self, texto:str, origem:AtoNormativo, tipo:str, indice_texto:str, indice_doc:int) -> None:
+        self.origem:AtoNormativo = origem
+        self.dispositivo_pai: Optional[DispositivoNormativo] = None
         self.nlp: Doc = MODELO_NLP('NLP não processado')
-        self.texto = texto
-        self.id_dispositivo:str = id_dispositivo
+        self.i = indice_doc
+        self.texto = texto + '[...]'
+        self.marcador_sub_dispositivo: dict = {'Art.':['§', 'Parágrafo'], '§':['I', 'II', 'III', 'IV']}
+        self.sub_dispositivos = self.__identificar_sub_dispositivos()
         self.tipo:str = tipo
+        self.indice:str = indice_texto
+        if self.tipo == 'artigo':
+                    self.nlp = self.__nlp_dispositivo()
+                    self.id_dispositivo = self.__enumerar_artigo()
+                    
         self.prefixo_urn: str = PREFIXO_URN
-        self.sufixo_urn: str = sufixo_urn
+        self.sufixo_urn: str = f'{origem.titulo}' + ':' + f'{self.tipo}' + '.' + f'{self.indice}'
         self.urn: str = self.__definir_urn()
-        self.paragrafos: Optional[list] = []
-
-        if self.tipo == 'Artigo':
-            self.__nlp_dispositivo()
-            self.__enumerar_artigo()
-            self.__identificar_paragrafos()
-        pass
 
     def __str__(self) -> str:
         return f'{self.urn}'
@@ -200,42 +198,22 @@ class DispositivoNormativo():
         return self.urn
 
     def __enumerar_artigo(self) -> str:
-        numero_artigo: str = ''
-        limitador = 0
-        for token in self.nlp:
-            limitador += 1
-            if token.is_digit:
-                numero_artigo = token.text
-                break
-            elif limitador > 10:
-                numero_artigo = 'sem_numero'
-        return numero_artigo
+        pass
 
-    def __identificar_paragrafos(self) -> list:
-        paragrafos = []
-        for token in self.nlp:
-            if token.text.startswith('§') or token.text == 'Parágrafo':
-                inicio_paragrafo = token.i
-                limitador = 0
-                for i in range(inicio_paragrafo, len(doc), 1):
-                    limitador += 1
-                    if doc[i].text in ['Art.', '§', 'Parágrafo', '.']:
-                        final_paragrafo = doc[i].i
-                        break
-                    elif limitador > 100:
-                        final_paragrafo = doc[limitador].i
-                        break
-                texto_paragrafo = self.nlp[inicio_paragrafo : final_paragrafo]
-                paragrafos.append(texto_paragrafo)
-        return paragrafos
-
-
-    
-
-
+    def __identificar_sub_dispositivos(self) -> Any:
+        self.sub_dispositivos = []
+        span = self.origem.doc[self.i:]
+        contador = 0
+        for token in span:
+                if token.text == span[0].text:
+                    contador +=1
+                elif token.text in self.marcador_sub_dispositivo[span[0].text]:
+                    self.sub_dispositivos.append(token.text)
+                elif contador == 2:
+                    break
+        pass
 #testes
-d = AtoNormativo(r'https://repositorio.iti.gov.br/instrucoes-normativas/IN2026_37_altera_DOC-ICP-05.03.htm', True)
-p = AtoNormativo(r'https://repositorio.iti.gov.br/instrucoes-normativas/IN2026_36_identificacao_requerente.htm', True)
+d = AtoNormativo(r'https://repositorio.iti.gov.br/instrucoes-normativas/IN2026_36_identificacao_requerente.htm', True)
 doc = d.doc
 p_doc = p.doc
 
@@ -254,15 +232,11 @@ p_doc = p.doc
 
 teste = classificar_dispositivos(MODELO_NLP('Art. 1º diz a coisa x e Art. 2º diz a coisa y'))'''
 
-matcher = PhraseMatcher(MODELO_NLP.vocab, attr='SHAPE')
-exemplo = MODELO_NLP('Art. 1º. Todas as leis devem estar listadas desta forma.')
-pattern = [{'TEXT':{'FUZZY4': {'IN': ['Art. 1º', 'Art. 11']} }}]
-matcher.add('ATO', [exemplo])
+df = pd.DataFrame(
+    {
+    'Dispositivo':[dispositivo.urn for dispositivo in d.dispositivos], 
+     'Tipo': [dispositivo.tipo for dispositivo in d.dispositivos],
+     'Texto': [dispositivo.texto for dispositivo in d.dispositivos]}
+)
 
-for match_id, start, end in matcher(p_doc):
-    span = p_doc[start:end]
-    print(span)
-
-
-
-
+df.to_html('teste.html')
