@@ -42,6 +42,13 @@ TIPO_ATO_NORMATIVO = {
 
 PREFIXO_URN = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
 
+PREFIXO_DISPOSITIVO = {'Art.':'artigo',
+                       '§':'paragrafo',
+                       'Parágrafo':'paragrafo'}
+
+HIERARQUIA_DISPOSITIVOS = {'artigo':'paragrafo',
+                           'paragrafo':'inciso'}
+
 #Classes        
 class AtoNormativo:
     def __init__(self, arquivo:str, nlp:bool = False) -> None:
@@ -155,7 +162,7 @@ class AtoNormativo:
             if token.text in prefixos.keys():
                 span = self.doc[token.i : token.i + 15]
                 indice_doc = token.i
-                indice_texto = ''
+                indice_texto = '.'
                 for i in range(0, len(span[1].text)):
                     if span[1].text[i].isdigit():
                         indice_texto += span[1].text[i]
@@ -168,23 +175,23 @@ class AtoNormativo:
         return self.dispositivos
 
 class DispositivoNormativo():
-    def __init__(self, texto:str, origem:AtoNormativo, tipo:str, indice_texto:str, indice_doc:int) -> None:
+    def __init__(self, texto:str, origem: AtoNormativo, tipo:str, indice_texto:str, indice_doc:int, dispositivo_pai: Optional[str] = None) -> None:
         self.origem:AtoNormativo = origem
-        self.dispositivo_pai: Optional[DispositivoNormativo] = None
+        self.tipo:str = tipo
+        if isinstance(dispositivo_pai, str):
+            self.dispositivo_pai = dispositivo_pai
+        else:
+            self.dispositivo_pai = None
         self.nlp: Doc = MODELO_NLP('NLP não processado')
+        self.prefixo_urn: str = PREFIXO_URN
+        self.indice:str = indice_texto  
         self.i = indice_doc
         self.texto = texto + '[...]'
+        self.sufixo_urn: str = f'{origem.titulo}' + ':' + f'{self.tipo}' + f'{self.indice}'
+        self.urn: str = self.__definir_urn()
         self.marcador_sub_dispositivo: dict = {'Art.':['§', 'Parágrafo'], '§':['I', 'II', 'III', 'IV']}
         self.sub_dispositivos = self.__identificar_sub_dispositivos()
-        self.tipo:str = tipo
-        self.indice:str = indice_texto
-        if self.tipo == 'artigo':
-                    self.nlp = self.__nlp_dispositivo()
-                    self.id_dispositivo = self.__enumerar_artigo()
-                    
-        self.prefixo_urn: str = PREFIXO_URN
-        self.sufixo_urn: str = f'{origem.titulo}' + ':' + f'{self.tipo}' + '.' + f'{self.indice}'
-        self.urn: str = self.__definir_urn()
+     
 
     def __str__(self) -> str:
         return f'{self.urn}'
@@ -194,7 +201,10 @@ class DispositivoNormativo():
         return nlp
 
     def __definir_urn(self) -> str:
-        self.urn = self.prefixo_urn + self.sufixo_urn
+        if isinstance(self.dispositivo_pai, str):
+            self.urn = self.prefixo_urn + self.dispositivo_pai + ':' + self.sufixo_urn.split(':')[1]
+        else:
+            self.urn = self.prefixo_urn + self.sufixo_urn
         return self.urn
 
     def __enumerar_artigo(self) -> str:
@@ -202,20 +212,27 @@ class DispositivoNormativo():
 
     def __identificar_sub_dispositivos(self) -> Any:
         self.sub_dispositivos = []
-        span = self.origem.doc[self.i:]
+        span = self.origem.doc[self.i+1:]
+        tipo_sub_dispositivo = HIERARQUIA_DISPOSITIVOS[self.tipo]
         contador = 0
         for token in span:
-                if token.text == span[0].text:
-                    contador +=1
-                elif token.text in self.marcador_sub_dispositivo[span[0].text]:
-                    self.sub_dispositivos.append(token.text)
-                elif contador == 2:
-                    break
-        pass
+            contador += 1
+            if token.text in [chave for chave, valor in PREFIXO_DISPOSITIVO.items() if valor == tipo_sub_dispositivo]:
+                if token.nbor(1).text.lower() == 'único':
+                    indice = 'unico'
+                else:
+                    indice = ''.join(caractere for caractere in token.nbor().text if caractere.isdigit())
+                self.sub_dispositivos.append(DispositivoNormativo(self.origem.doc[token.i:token.i+10].text,
+                                                                   self.origem, tipo_sub_dispositivo,
+                                                                   '.'+indice,
+                                                                   token.i, self.sufixo_urn))
+            elif token.text in [chave for chave, valor in PREFIXO_DISPOSITIVO.items() if valor == self.tipo]:
+                break
+        return self.sub_dispositivos
+    
 #testes
-d = AtoNormativo(r'https://repositorio.iti.gov.br/instrucoes-normativas/IN2026_36_identificacao_requerente.htm', True)
+d = AtoNormativo(r"N:\DOCUMENTOS_ICP_BRASIL\04_-_INSTRUÇÕES_NORMATIVAS\Site Novo\IN2022_26_CAR.pdf", True)
 doc = d.doc
-p_doc = p.doc
 
 '''def classificar_dispositivos(origem: Doc):
         prefixos = {
@@ -236,7 +253,8 @@ df = pd.DataFrame(
     {
     'Dispositivo':[dispositivo.urn for dispositivo in d.dispositivos], 
      'Tipo': [dispositivo.tipo for dispositivo in d.dispositivos],
-     'Texto': [dispositivo.texto for dispositivo in d.dispositivos]}
+     'Texto': [dispositivo.texto for dispositivo in d.dispositivos],
+     'SubDispositivos': [len(dispositivo.sub_dispositivos) for dispositivo in d.dispositivos]}
 )
 
-df.to_html('teste.html')
+print(df)
