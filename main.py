@@ -1,4 +1,6 @@
 from typing import Any
+import re
+import roman
 from classes import ExemploAtoNormativo
 from dataclasses import dataclass, field
 import pandas as pd
@@ -44,10 +46,14 @@ PREFIXO_URN = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
 
 PREFIXO_DISPOSITIVO = {'Art.':'artigo',
                        '§':'paragrafo',
-                       'Parágrafo':'paragrafo'}
+                       'Parágrafo':'paragrafo',
+                       'I' : 'inciso',
+                       'a)':'item'}
 
 HIERARQUIA_DISPOSITIVOS = {'artigo':'paragrafo',
-                           'paragrafo':'inciso'}
+                           'paragrafo':'inciso',
+                           'inciso':'item',
+                           'item': None}
 
 #Classes        
 class AtoNormativo:
@@ -149,16 +155,26 @@ class AtoNormativo:
                 self.categoria = 'Desconhecida'
         return self.categoria 
     
+    def __is_romano(self, token: Token) -> bool:
+        try:
+            roman.fromRoman(token.text)
+            if token.text == token.text.upper() and token.is_alpha:
+                return True
+            else:
+                return False
+        except:
+            return False
+
     def __classificar_dispositivos(self):
-        prefixos = {
-            'Art.':'artigo'
-        }
+        prefixos = PREFIXO_DISPOSITIVO.copy()
 
         dispositivos_encontrados = {}
 
         dispositivos_classificados = []
 
         for token in self.doc:
+            if self.__is_romano(token):
+                prefixos[token.text] = 'inciso'
             if token.text in prefixos.keys():
                 span = self.doc[token.i : token.i + 15]
                 indice_doc = token.i
@@ -166,6 +182,8 @@ class AtoNormativo:
                 for i in range(0, len(span[1].text)):
                     if span[1].text[i].isdigit():
                         indice_texto += span[1].text[i]
+                    elif self.__is_romano(span[0]):
+                        indice_texto = '.' + str(roman.fromRoman(span[0].text))
                     elif 'único' in span.text:
                         indice_texto = 'unico'
                 dispositivos_encontrados[span.text] = prefixos[span[0].text]
@@ -195,6 +213,12 @@ class DispositivoNormativo():
 
     def __str__(self) -> str:
         return f'{self.urn}'
+    
+    def __validar_dispositivo(self, dispositivo:str):
+       if dispositivo in HIERARQUIA_DISPOSITIVOS.keys():
+           return True
+       else:
+           return False
 
     def __nlp_dispositivo(self) -> Doc:
         nlp = MODELO_NLP(self.texto)
@@ -210,44 +234,45 @@ class DispositivoNormativo():
     def __enumerar_artigo(self) -> str:
         pass
 
+    def __is_romano(self, token: Token) -> bool:
+        try:
+            roman.fromRoman(token.text)
+            if token.text == token.text.upper():
+                return True
+        except:
+            return False
+        
+
     def __identificar_sub_dispositivos(self) -> Any:
         self.sub_dispositivos = []
-        span = self.origem.doc[self.i+1:]
+        dict_dispositivos = PREFIXO_DISPOSITIVO.copy()
         tipo_sub_dispositivo = HIERARQUIA_DISPOSITIVOS[self.tipo]
+        if not tipo_sub_dispositivo:
+            return self.sub_dispositivos
+        doc = self.origem.doc
+        span = self.origem.doc[self.i+1:]
         contador = 0
         for token in span:
-            contador += 1
-            if token.text in [chave for chave, valor in PREFIXO_DISPOSITIVO.items() if valor == tipo_sub_dispositivo]:
-                if token.nbor(1).text.lower() == 'único':
-                    indice = 'unico'
-                else:
-                    indice = ''.join(caractere for caractere in token.nbor().text if caractere.isdigit())
-                self.sub_dispositivos.append(DispositivoNormativo(self.origem.doc[token.i:token.i+10].text,
-                                                                   self.origem, tipo_sub_dispositivo,
-                                                                   '.'+indice,
-                                                                   token.i, self.sufixo_urn))
-            elif token.text in [chave for chave, valor in PREFIXO_DISPOSITIVO.items() if valor == self.tipo]:
-                break
+            if self.__is_romano(token):
+                dict_dispositivos[token.text] = 'inciso'
+            if token.is_sent_start:
+                contador += 1
+                if self.__is_romano(token) or token.text in [chave for chave, valor in dict_dispositivos.items() if valor == tipo_sub_dispositivo]:
+                    if token.nbor(1).text.lower() == 'único':
+                        indice = 'unico'
+                    else:
+                        indice = ''.join(caractere for caractere in token.nbor().text if caractere.isdigit())
+                    self.sub_dispositivos.append(DispositivoNormativo(self.origem.doc[token.i:token.i+10].text,
+                                                                    self.origem, tipo_sub_dispositivo,
+                                                                    '.'+indice,
+                                                                    token.i, self.sufixo_urn))
+                elif token.text in [chave for chave, valor in dict_dispositivos.items() if valor == self.tipo]:
+                    break
         return self.sub_dispositivos
     
 #testes
-d = AtoNormativo(r"N:\DOCUMENTOS_ICP_BRASIL\04_-_INSTRUÇÕES_NORMATIVAS\Site Novo\IN2022_26_CAR.pdf", True)
+d = AtoNormativo(r"https://repositorio.iti.gov.br/instrucoes-normativas/IN2025_31_envio_informacoes.htm", True)
 doc = d.doc
-
-'''def classificar_dispositivos(origem: Doc):
-        prefixos = {
-            'Art.':'Artigo'
-        }
-
-        dispositivos = {}
-
-        for token in origem:
-            if token.text in prefixos.keys():
-                span = origem[token.i : token.i + 5]
-                dispositivos[span] = prefixos[span[0].text]
-        return dispositivos
-
-teste = classificar_dispositivos(MODELO_NLP('Art. 1º diz a coisa x e Art. 2º diz a coisa y'))'''
 
 df = pd.DataFrame(
     {
