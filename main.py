@@ -42,7 +42,7 @@ TIPO_ATO_NORMATIVO = {
         'ofício' : 'portaria'
         }
 
-PREFIXO_URN = 'lex:br:instituto.federal.tecnologia.informacao:icp.brasil:'
+PREFIXO_URN = 'urn:lex:icp.brasil:'
 
 PREFIXO_DISPOSITIVO = {'Art.':'artigo',
                        '§':'paragrafo',
@@ -74,8 +74,6 @@ class AtoNormativo:
             self.__obter_titulo()
             self.__classificar_ato_normativo()
             self.dispositivos = self.__classificar_dispositivos()
-            
-        pass
 
     def __processar_nlp(self):
         self.doc = MODELO_NLP(self.texto)
@@ -157,7 +155,7 @@ class AtoNormativo:
     
     def __is_romano(self, token: Token) -> bool:
         try:
-            roman.fromRoman(token.text)
+            roman.fromRoman(token.text, special_case=False)
             if token.text == token.text.upper() and token.is_alpha:
                 return True
             else:
@@ -215,6 +213,7 @@ class DispositivoNormativo():
         return f'{self.urn}'
     
     def __validar_dispositivo(self, dispositivo:str):
+       
        if dispositivo in HIERARQUIA_DISPOSITIVOS.keys():
            return True
        else:
@@ -271,7 +270,7 @@ class DispositivoNormativo():
         return self.sub_dispositivos
     
 #testes
-d = AtoNormativo(r"https://repositorio.iti.gov.br/instrucoes-normativas/IN2025_31_envio_informacoes.htm", True)
+d = AtoNormativo(r"N:\DOCUMENTOS_ICP_BRASIL\04_-_INSTRUÇÕES_NORMATIVAS\Site Novo\IN2026_36_identificacao_requerente.pdf", True)
 doc = d.doc
 
 df = pd.DataFrame(
@@ -282,4 +281,34 @@ df = pd.DataFrame(
      'SubDispositivos': [len(dispositivo.sub_dispositivos) for dispositivo in d.dispositivos]}
 )
 
-print(df)
+
+for token in doc:
+    if token.text.startswith('Art.') and doc[token.i-1].is_alpha:
+        print(doc[token.i:token.i+3])
+
+
+def validar_sequencia(texto: Doc):
+    doc = texto
+    log_sequencial = {'artigo':1,'paragrafo':1,'inciso':1}
+    for token in doc:
+        if token.text.startswith('Art.'):
+            indice =''.join([digito for digito in token.nbor().text if digito.isdigit()])
+            print('indice:'+indice)
+            try:
+                int_indice = int(indice)
+            except:
+                try:
+                    for tk in doc[token.i:token.i+3]:
+                        indice = ''.join(digito for digito in tk.text if digito.isdigit())
+                        int_indice = int(indice)
+                except:
+                    print('digito nao encontrado')
+                    continue
+            if int_indice == log_sequencial['artigo']:
+                log_sequencial['artigo'] += 1
+                print(token.text + indice)
+            else:
+                print(indice)
+                continue
+ 
+validar_sequencia(doc)
