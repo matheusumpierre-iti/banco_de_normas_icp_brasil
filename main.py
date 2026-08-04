@@ -270,7 +270,7 @@ class DispositivoNormativo():
         return self.sub_dispositivos
     
 #testes
-d = AtoNormativo(r"N:\DOCUMENTOS_ICP_BRASIL\04_-_INSTRUÇÕES_NORMATIVAS\Site Novo\IN2026_36_identificacao_requerente.pdf", True)
+d = AtoNormativo(r"https://repositorio.iti.gov.br/instrucoes-normativas/IN2025_33_DOC_ICP_15.03.htm", True)
 doc = d.doc
 
 df = pd.DataFrame(
@@ -311,4 +311,3 @@ def validar_sequencia(texto: Doc):
                 print(indice)
                 continue
  
-validar_sequencia(doc)
