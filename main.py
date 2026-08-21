@@ -1,10 +1,13 @@
 from typing import Any
 import re
+from db import client
+from db import atos_normativos
+from db import database
 import roman
+import hashlib
 from classes import ExemploAtoNormativo
 from dataclasses import dataclass, field
 import pandas as pd
-import sqlite3
 import pdfplumber
 import html5lib
 import requests
@@ -60,6 +63,7 @@ class AtoNormativo:
     def __init__(self, arquivo:str, nlp:bool = False) -> None:
         self.origem = arquivo
         self.url: Optional[str] = None
+        self.hash: Optional[str] = None
         self.formatos_suportados = ['.pdf','.md','.txt','.odt','.doc','.docx']
         self.arquivo_salvo: Optional[io.BytesIO] = None
         self.pdf: Optional[PDF] = None
@@ -72,12 +76,14 @@ class AtoNormativo:
         if nlp == True:
             self.__processar_nlp()
             self.__obter_titulo()
+            self.__obter_hash()
             self.__classificar_ato_normativo()
             self.dispositivos = self.__classificar_dispositivos()
 
     def __processar_nlp(self):
         self.doc = MODELO_NLP(self.texto)
         return self.doc
+
 
     def __obter_titulo(self):
         for token in self.doc:
@@ -162,6 +168,11 @@ class AtoNormativo:
                 return False
         except:
             return False
+
+    def __obter_hash(self):
+        hash = hashlib.sha1(self.texto.encode('utf-8'))
+        self.hash = hash.hexdigest()
+        return self.hash
 
     def __classificar_dispositivos(self):
         prefixos = PREFIXO_DISPOSITIVO.copy()
@@ -270,7 +281,7 @@ class DispositivoNormativo():
         return self.sub_dispositivos
     
 #testes
-d = AtoNormativo(r"https://repositorio.iti.gov.br/instrucoes-normativas/IN2025_33_DOC_ICP_15.03.htm", True)
+d = AtoNormativo(r"https://repositorio.iti.gov.br/instrucoes-normativas/IN2026_36_identificacao_requerente.htm", True)
 doc = d.doc
 
 df = pd.DataFrame(
@@ -279,6 +290,14 @@ df = pd.DataFrame(
      'Tipo': [dispositivo.tipo for dispositivo in d.dispositivos],
      'Texto': [dispositivo.texto for dispositivo in d.dispositivos],
      'SubDispositivos': [len(dispositivo.sub_dispositivos) for dispositivo in d.dispositivos]}
+)
+
+metadados_ato_normativo = pd.DataFrame(
+    {
+        'Título':[d.titulo],
+        'Categoria':[d.categoria],
+        'Texto':[d.texto]
+    }
 )
 
 
@@ -311,3 +330,14 @@ def validar_sequencia(texto: Doc):
                 print(indice)
                 continue
  
+data = metadados_ato_normativo.to_dict(orient='records')
+
+
+print(metadados_ato_normativo)
+
+#result = atos_normativos.insert_many(data)
+#print(result.acknowledged)
+
+print(d.hash)
+
+client.close()
