@@ -47,7 +47,8 @@ TIPO_ATO_NORMATIVO = {
         'instrução':'instrucao.normativa',
         'resolução':'resolucao',
         'portaria' : 'portaria',
-        'ofício' : 'portaria'
+        'ofício' : 'portaria',
+        'doc-icp' : 'doc.icp'
         }
 
 PREFIXO_URN = 'urn:lex:icp.brasil:'
@@ -77,6 +78,37 @@ DATA = {'janeiro':'01',
         'dezembro':'12'}
 
 #Funções globais
+def validar_sequencia(texto: Doc):
+    doc = texto
+    log_sequencial = {'artigo':1,'paragrafo':1,'inciso':1}
+    for token in doc:
+        if token.text.startswith('Art.'):
+            indice =''.join([digito for digito in token.nbor().text if digito.isdigit()])
+            print('indice:'+indice)
+            try:
+                int_indice = int(indice)
+            except:
+                try:
+                    for tk in doc[token.i:token.i+3]:
+                        indice = ''.join(digito for digito in tk.text if digito.isdigit())
+                        int_indice = int(indice)
+                except:
+                    print('digito nao encontrado')
+                    continue
+            if int_indice == log_sequencial['artigo']:
+                log_sequencial['artigo'] += 1
+                print(token.text + indice)
+            else:
+                print(indice)
+                continue
+
+def salvar_json(dicionarios:list, arquivo:str):
+    with open(arquivo, 'w', encoding='utf8') as file:
+        file.write(dicionarios[0])
+    for dicionario in dicionarios[1:]:
+        with open(arquivo, 'a', encoding='utf8') as file:
+            file.write(dicionario)
+
 def obter_data(doc):
     for token in doc:
         if token.text.lower() in DATA.keys():
@@ -117,7 +149,8 @@ class AtoNormativo:
             self.dispositivos_legais: str = json.dumps(parse_lei(self.doc.text), ensure_ascii=False, indent=2)
             self.topicos:str = json.dumps(parse_topicos(self.doc.text), ensure_ascii=False, indent=2)
             self.dispositivos = self.__classificar_dispositivos()
-            self.metadados = self.__obter_metadados()
+            self.metadados = json.dumps(self.__obter_metadados(), ensure_ascii=False, indent=2)
+            self.json = json.dumps(self.metadados + self.dispositivos_legais + self.topicos, ensure_ascii=False, indent=2)
 
     def __processar_nlp(self):
         self.doc = MODELO_NLP(self.texto)
@@ -254,10 +287,14 @@ class AtoNormativo:
 
         metadados['titulo'] = self.titulo
         metadados['categoria'] = self.categoria
-        metadados['ementa'] = detectar_ementa(self.origem)['texto']
         metadados['data'] = converter_data(obter_data(self.doc))
         metadados['is_versao_atual'] = True     # Criar processo para detectar versionamento
         metadados['urn'] = f'icp_brasil:{metadados["titulo"]}:{metadados['data']}'
+
+        try:
+            metadados['ementa'] = detectar_ementa(self.origem)['texto']
+        except:
+            metadados['ementa'] = ""
 
         return metadados
 
@@ -344,34 +381,13 @@ class DispositivoNormativo():
 
     
 #testes
-d = AtoNormativo(r"C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\IN2026_36_identificacao_requerente.docx", True)
+d = AtoNormativo(r"C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\DOC-ICP-03.02_v.2.0_REQUISITOS_MÍNIMOS_SEGURANÇA_PSBIO.odt", True)
 doc = d.doc
 
-def validar_sequencia(texto: Doc):
-    doc = texto
-    log_sequencial = {'artigo':1,'paragrafo':1,'inciso':1}
-    for token in doc:
-        if token.text.startswith('Art.'):
-            indice =''.join([digito for digito in token.nbor().text if digito.isdigit()])
-            print('indice:'+indice)
-            try:
-                int_indice = int(indice)
-            except:
-                try:
-                    for tk in doc[token.i:token.i+3]:
-                        indice = ''.join(digito for digito in tk.text if digito.isdigit())
-                        int_indice = int(indice)
-                except:
-                    print('digito nao encontrado')
-                    continue
-            if int_indice == log_sequencial['artigo']:
-                log_sequencial['artigo'] += 1
-                print(token.text + indice)
-            else:
-                print(indice)
-                continue
+
  
 #result = atos_normativos.insert_many(data)
 #print(result.acknowledged)
 
-print(d.metadados)
+salvar_json([d.metadados, d.dispositivos_legais, d.topicos], 'teste.json')
+
