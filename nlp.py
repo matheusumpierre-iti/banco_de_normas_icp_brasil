@@ -1,4 +1,5 @@
 import spacy
+import roman
 from spacy.matcher import Matcher
 from main import doc
 
@@ -7,6 +8,7 @@ matcher = Matcher(nlp.vocab)
 
 matcher.add('INICIO_PARAGRAFO', [[{'ORTH':{'IN':['Parágrafo','§']}, 'IS_SENT_START':True}, {'LIKE_NUM':True}]])
 matcher.add('INICIO_ARTIGO', [[{'ORTH':'Art.','IS_SENT_START':True}, {'LIKE_NUM':True}]])
+matcher.add('INCISO', [[{'ORTH':{'IN':[roman.toRoman(i) for i in range(1,99)]}}]])
 matcher.add('FIM', [[{'TEXT':'.'}]])
 
 

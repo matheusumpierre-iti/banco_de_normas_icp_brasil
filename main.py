@@ -1,8 +1,11 @@
 from typing import Any
+from parser import parse_lei
+from date_spacy import find_dates
+from parser_topicos import parse_topicos
+from detectar_ementa import detectar_ementa
 import re
-from db import client
-from db import atos_normativos
-from db import database
+from docx import Document
+import json
 import roman
 import hashlib
 from classes import ExemploAtoNormativo
@@ -33,9 +36,11 @@ Token.set_extension('is_artigo', getter=artigo_getter)
 Token.set_extension('is_paragrafo', getter=paragrafo_getter)
 
 
+nlp = spacy.load('pt_core_news_lg')
+nlp.add_pipe('find_dates')
 
 #Constantes
-MODELO_NLP = spacy.load('pt_core_news_lg')
+MODELO_NLP = nlp
 
 TIPO_ATO_NORMATIVO = {
         'instrução normativa':'instrucao.normativa',
@@ -58,6 +63,36 @@ HIERARQUIA_DISPOSITIVOS = {'artigo':'paragrafo',
                            'inciso':'item',
                            'item': None}
 
+DATA = {'janeiro':'01',
+        'fevereiro':'02',
+        'março':'03',
+        'abril':'04',
+        'maio':'05',
+        'junho':'06',
+        'julho':'07',
+        'agosto':'08',
+        'setembro':'09',
+        'outubro':'10',
+        'novembro':'11',
+        'dezembro':'12'}
+
+#Funções globais
+def obter_data(doc):
+    for token in doc:
+        if token.text.lower() in DATA.keys():
+            span = doc[token.i-2:token.i+3]
+            return span.text
+
+def converter_data(texto):
+    m = re.match(r"(\d{1,2}) de (\w+) de (\d{4})", texto.strip(), re.IGNORECASE)
+    if not m:
+        raise ValueError(f"Formato não reconhecido: {texto!r}")
+    dia, mes_nome, ano = m.groups()
+    mes = DATA.get(mes_nome.lower())
+    if mes is None:
+        raise ValueError(f"Mês não reconhecido: {mes_nome!r}")
+    return f"{int(dia):02d}.{mes}.{ano}"
+
 #Classes        
 class AtoNormativo:
     def __init__(self, arquivo:str, nlp:bool = False) -> None:
@@ -73,12 +108,16 @@ class AtoNormativo:
         self.texto: str
         self.doc: Any = None
         self.__obter_conteudo()
+
         if nlp == True:
             self.__processar_nlp()
             self.__obter_titulo()
             self.__obter_hash()
             self.__classificar_ato_normativo()
+            self.dispositivos_legais: str = json.dumps(parse_lei(self.doc.text), ensure_ascii=False, indent=2)
+            self.topicos:str = json.dumps(parse_topicos(self.doc.text), ensure_ascii=False, indent=2)
             self.dispositivos = self.__classificar_dispositivos()
+            self.metadados = self.__obter_metadados()
 
     def __processar_nlp(self):
         self.doc = MODELO_NLP(self.texto)
@@ -90,7 +129,7 @@ class AtoNormativo:
             if token.text.lower() in TIPO_ATO_NORMATIVO.keys():
                 prefixo_titulo = TIPO_ATO_NORMATIVO[token.text.lower()]
                 sufixo_titulo = ''
-                span = self.doc[token.i:token.i+5]
+                span = self.doc[token.i:token.i+6]
                 for i in range(0, len(span.text)):
                     if span.text[i].isdigit():
                         sufixo_titulo += span.text[i]
@@ -200,6 +239,27 @@ class AtoNormativo:
                 dispositivos_classificados.append(dispositivo)
         self.dispositivos = dispositivos_classificados
         return self.dispositivos
+    
+    def __obter_metadados(self):
+        """Faz parsing para obter metadados de documento."""
+        metadados = {
+            "titulo":str,
+            "categoria":str,
+            "data":"",
+            "is_versao_atual":True,
+            "versao":'0.0',
+            "ementa":"",
+            "urn":Optional[str]
+        }
+
+        metadados['titulo'] = self.titulo
+        metadados['categoria'] = self.categoria
+        metadados['ementa'] = detectar_ementa(self.origem)['texto']
+        metadados['data'] = converter_data(obter_data(self.doc))
+        metadados['is_versao_atual'] = True     # Criar processo para detectar versionamento
+        metadados['urn'] = f'icp_brasil:{metadados["titulo"]}:{metadados['data']}'
+
+        return metadados
 
 class DispositivoNormativo():
     def __init__(self, texto:str, origem: AtoNormativo, tipo:str, indice_texto:str, indice_doc:int, dispositivo_pai: Optional[str] = None) -> None:
@@ -279,32 +339,13 @@ class DispositivoNormativo():
                 elif token.text in [chave for chave, valor in dict_dispositivos.items() if valor == self.tipo]:
                     break
         return self.sub_dispositivos
+
+
+
     
 #testes
-d = AtoNormativo(r"https://repositorio.iti.gov.br/instrucoes-normativas/IN2026_36_identificacao_requerente.htm", True)
+d = AtoNormativo(r"C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\IN2026_36_identificacao_requerente.docx", True)
 doc = d.doc
-
-df = pd.DataFrame(
-    {
-    'Dispositivo':[dispositivo.urn for dispositivo in d.dispositivos], 
-     'Tipo': [dispositivo.tipo for dispositivo in d.dispositivos],
-     'Texto': [dispositivo.texto for dispositivo in d.dispositivos],
-     'SubDispositivos': [len(dispositivo.sub_dispositivos) for dispositivo in d.dispositivos]}
-)
-
-metadados_ato_normativo = pd.DataFrame(
-    {
-        'Título':[d.titulo],
-        'Categoria':[d.categoria],
-        'Texto':[d.texto]
-    }
-)
-
-
-for token in doc:
-    if token.text.startswith('Art.') and doc[token.i-1].is_alpha:
-        print(doc[token.i:token.i+3])
-
 
 def validar_sequencia(texto: Doc):
     doc = texto
@@ -330,14 +371,7 @@ def validar_sequencia(texto: Doc):
                 print(indice)
                 continue
  
-data = metadados_ato_normativo.to_dict(orient='records')
-
-
-print(metadados_ato_normativo)
-
 #result = atos_normativos.insert_many(data)
 #print(result.acknowledged)
 
-print(d.hash)
-
-client.close()
+print(d.metadados)
