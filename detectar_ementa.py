@@ -152,10 +152,12 @@ def detectar_ementa(caminho_docx: str, indent_minimo_polegadas: float = 0.7):
     if melhor is None or melhor_pontuacao <= 0:
         return None
 
-    return {
+    detalhes = {
         "texto": melhor,
         **detalhes_melhor
     }
+
+    return detalhes['texto']
 
 
 def main():

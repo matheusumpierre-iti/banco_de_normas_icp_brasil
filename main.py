@@ -1,5 +1,6 @@
 from typing import Any
-from parser import parse_lei
+from parser_lei import parse_lei
+from db import client
 from date_spacy import find_dates
 from parser_topicos import parse_topicos
 from detectar_ementa import detectar_ementa
@@ -37,9 +38,10 @@ Token.set_extension('is_paragrafo', getter=paragrafo_getter)
 
 
 nlp = spacy.load('pt_core_news_lg')
-nlp.add_pipe('find_dates')
 
 #Constantes
+DB = client['atos_normativos']
+
 MODELO_NLP = nlp
 
 TIPO_ATO_NORMATIVO = {
@@ -51,7 +53,7 @@ TIPO_ATO_NORMATIVO = {
         'doc-icp' : 'doc.icp'
         }
 
-PREFIXO_URN = 'urn:lex:icp.brasil:'
+PREFIXO_URN = 'urn:icp.brasil'
 
 PREFIXO_DISPOSITIVO = {'Art.':'artigo',
                        '§':'paragrafo',
@@ -146,11 +148,14 @@ class AtoNormativo:
             self.__obter_titulo()
             self.__obter_hash()
             self.__classificar_ato_normativo()
-            self.dispositivos_legais: str = json.dumps(parse_lei(self.doc.text), ensure_ascii=False, indent=2)
-            self.topicos:str = json.dumps(parse_topicos(self.doc.text), ensure_ascii=False, indent=2)
+            self.__obter_metadados()
+            self.dispositivos_legais: list = parse_lei(self.doc.text)
+            self.json_dispositivos_legais: str = json.dumps(parse_lei(self.doc.text), ensure_ascii=False, indent=2)
+            self.topicos = parse_topicos(self.doc.text)
+            self.json_topicos:str = json.dumps(parse_topicos(self.doc.text), ensure_ascii=False, indent=2)
             self.dispositivos = self.__classificar_dispositivos()
-            self.metadados = json.dumps(self.__obter_metadados(), ensure_ascii=False, indent=2)
-            self.json = json.dumps(self.metadados + self.dispositivos_legais + self.topicos, ensure_ascii=False, indent=2)
+            self.metadados_json = json.dumps(self.__obter_metadados(), ensure_ascii=False, indent=2)
+            self.json = json.dumps(self.metadados_json + self.json_dispositivos_legais + self.json_topicos, ensure_ascii=False, indent=2)
 
     def __processar_nlp(self):
         self.doc = MODELO_NLP(self.texto)
@@ -158,8 +163,17 @@ class AtoNormativo:
 
 
     def __obter_titulo(self):
-        for token in self.doc:
-            if token.text.lower() in TIPO_ATO_NORMATIVO.keys():
+        for token in self.doc[0:50]:
+            if token.text.lower().startswith('doc-icp'):
+                prefixo_titulo = 'doc.icp'
+                span = self.doc[token.i:token.i+3]
+                sufixo_titulo = ''
+                for i in range(0, len(span.text)):
+                                    if span.text[i].isdigit():
+                                        sufixo_titulo += span.text[i]
+                                        self.titulo = prefixo_titulo +'.' + sufixo_titulo[:2] + '.' + sufixo_titulo[2:]
+                break
+            elif token.text.lower() in TIPO_ATO_NORMATIVO.keys():
                 prefixo_titulo = TIPO_ATO_NORMATIVO[token.text.lower()]
                 sufixo_titulo = ''
                 span = self.doc[token.i:token.i+6]
@@ -223,9 +237,12 @@ class AtoNormativo:
         return self.texto
     
     def __classificar_ato_normativo(self):
-        for token in self.doc[0:10]:
+        for token in self.doc[0:20]:
             if token.text.lower() in TIPO_ATO_NORMATIVO.keys():
                 self.categoria = TIPO_ATO_NORMATIVO[token.text.lower()]
+                break
+            elif token.text.lower().startswith('doc-icp'):
+                self.categoria = 'doc.icp'
                 break
             else:
                 self.categoria = 'Desconhecida'
@@ -245,6 +262,24 @@ class AtoNormativo:
         hash = hashlib.sha1(self.texto.encode('utf-8'))
         self.hash = hash.hexdigest()
         return self.hash
+
+    def __obter_versao(self):
+        """Busca número de versão do documento"""
+        for token in self.doc[0:50]:
+            print(f'token: {token.text}')
+            if token.text.lower().startswith('versão'):
+                print(f'Versão encontrada: {token.text}')
+                versao = ''
+                for char in self.doc[token.i:token.i+2].text:
+                    if char.isdigit():
+                        versao += char
+                    elif char == '.':
+                        versao += char
+                self.versao = versao
+                break
+            else:
+                self.versao = 'n.a.'
+        return self.versao
 
     def __classificar_dispositivos(self):
         prefixos = PREFIXO_DISPOSITIVO.copy()
@@ -276,27 +311,30 @@ class AtoNormativo:
     def __obter_metadados(self):
         """Faz parsing para obter metadados de documento."""
         metadados = {
-            "titulo":str,
-            "categoria":str,
+            "titulo":'',
+            "categoria":'',
             "data":"",
             "is_versao_atual":True,
             "versao":'0.0',
             "ementa":"",
-            "urn":Optional[str]
+            "urn": ''
         }
 
         metadados['titulo'] = self.titulo
         metadados['categoria'] = self.categoria
         metadados['data'] = converter_data(obter_data(self.doc))
         metadados['is_versao_atual'] = True     # Criar processo para detectar versionamento
-        metadados['urn'] = f'icp_brasil:{metadados["titulo"]}:{metadados['data']}'
+        metadados['urn'] = f'{PREFIXO_URN}:{metadados["titulo"]}:{metadados['data']}'
+        metadados['versao'] = self.__obter_versao()
 
         try:
             metadados['ementa'] = detectar_ementa(self.origem)['texto']
         except:
-            metadados['ementa'] = ""
+            metadados['ementa'] = "Indisponível"
 
-        return metadados
+        self.metadados = metadados
+
+        return self.metadados
 
 class DispositivoNormativo():
     def __init__(self, texto:str, origem: AtoNormativo, tipo:str, indice_texto:str, indice_doc:int, dispositivo_pai: Optional[str] = None) -> None:
@@ -381,7 +419,7 @@ class DispositivoNormativo():
 
     
 #testes
-d = AtoNormativo(r"C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\DOC-ICP-03.02_v.2.0_REQUISITOS_MÍNIMOS_SEGURANÇA_PSBIO.odt", True)
+d = AtoNormativo(r"C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\Resolucao152_revogada.odt", True)
 doc = d.doc
 
 
@@ -389,5 +427,34 @@ doc = d.doc
 #result = atos_normativos.insert_many(data)
 #print(result.acknowledged)
 
-salvar_json([d.metadados, d.dispositivos_legais, d.topicos], 'teste.json')
+salvar_json([d.metadados_json, d.json_dispositivos_legais, d.json_topicos], 'teste.json')
 
+#-----------------------------
+# Processos de banco de dados
+#-----------------------------
+
+nome_collection = d.metadados['urn']
+
+db = client['atos_normativos']
+
+try:
+    db.create_collection(nome_collection)
+except:
+    pass
+
+
+
+try:
+    db.get_collection(nome_collection).insert_many(d.dispositivos_legais)
+except:
+    pass
+
+try:
+    db.get_collection(nome_collection).insert_many(d.topicos)
+except:
+    pass
+
+
+print('teste inserido na coleção')
+
+client.close()

@@ -13,9 +13,36 @@ numerados hierarquicamente, no formato:
 
 Suporta até 6 níveis de profundidade (ajustável).
 
+Regras de validação aplicadas:
+
+  1) SEQUÊNCIA: um número só é aceito como um novo tópico se fizer
+     sentido na sequência esperada:
+       - Nível 1: deve seguir 1, 2, 3, 4...
+       - Nível N (N>1): o primeiro filho de um tópico-pai deve ser 1
+         (ex.: 2.1, não 2.3 antes de existir 2.1/2.2); os seguintes
+         devem incrementar em 1 dentro do MESMO pai.
+     Quando o número não bate com o esperado, a linha é tratada como
+     CONTINUAÇÃO DE TEXTO do tópico mais específico aberto no momento,
+     em vez de virar um novo item.
+
+  2) DETECÇÃO DE SUMÁRIO / ELEMENTOS PRÉ-TEXTUAIS: é comum documentos
+     terem um sumário/índice antes do corpo real, repetindo a MESMA
+     numeração que reaparece depois. Usamos isso como sinal: se um
+     tópico de nível 1 igual a "1" aparece de novo depois que a
+     numeração já havia avançado além de 1, entende-se que tudo
+     coletado até ali era sumário/pré-textual — o resultado acumulado
+     é DESCARTADO e a leitura recomeça a partir desse ponto.
+     Além disso, linhas com "cara" de entrada de sumário (pontilhado
+     seguido de número de página, ex.: "1. Introdução ....... 5") são
+     ignoradas mesmo que a numeração faça sentido, pois não fazem
+     parte do corpo real do texto.
+
 Uso básico:
     from parser_topicos import parse_topicos
     topicos = parse_topicos(texto)
+
+    # Para ver também os avisos (reinícios detectados, itens rejeitados):
+    topicos, avisos = parse_topicos(texto, retornar_avisos=True)
 
 Ou via linha de comando:
     python parser_topicos.py caminho/para/documento.txt
@@ -35,11 +62,24 @@ MAX_NIVEIS = 6  # altere aqui se precisar de mais ou menos níveis
 # Reconhece números como "1", "1.1", "1.1.1" ... no início da linha,
 # com ponto final opcional após o último segmento, seguido de espaço
 # (título do tópico) ou fim de linha.
-#   Ex.: "1. Introdução"      -> numero="1"      texto="Introdução"
-#        "1.1 Objetivo"       -> numero="1.1"    texto="Objetivo"
-#        "1.1.1."             -> numero="1.1.1"  texto=""
 TOPICO_RE = re.compile(
     r'^\s*(\d+(?:\.\d+){0,%d})\.?(?:\s+(.*))?$' % (MAX_NIVEIS - 1)
+)
+
+# Linhas com "cara" de entrada de sumário/índice: título seguido de
+# pontilhado (....) e um número de página no final, ou de vários
+# espaços/tabs e um número no final.
+#   Ex.: "1. Introdução .......................... 5"
+#        "2.1 Objetivos	9"
+TOC_LINE_RE = re.compile(
+    r'(\.{3,}\s*\d+\s*$)|(\t+\d+\s*$)|(\s{3,}\d+\s*$)'
+)
+
+# Cabeçalhos típicos de seção de sumário/índice (para referência /
+# possível filtragem adicional, embora a detecção principal seja via
+# reinício de sequência).
+SUMARIO_HEADER_RE = re.compile(
+    r'^\s*(sum[aá]rio|[íi]ndice)\s*$', re.IGNORECASE
 )
 
 
@@ -51,7 +91,7 @@ def _novo_topico(numero, texto_inicial):
     }
 
 
-def parse_topicos(texto: str):
+def parse_topicos(texto: str, retornar_avisos: bool = False):
     """
     Recebe o texto bruto do documento e devolve uma lista de tópicos
     de nível 1, cada um com seus subtópicos aninhados recursivamente.
@@ -62,56 +102,114 @@ def parse_topicos(texto: str):
         "texto": "texto do tópico...",
         "subtopicos": [ {...}, {...} ]
     }
+
+    Se retornar_avisos=True, devolve uma tupla (topicos, avisos), em
+    que 'avisos' é uma lista de strings descrevendo reinícios
+    detectados e linhas rejeitadas por não seguirem a sequência.
     """
     raiz = []
-    # pilha[i] = último tópico de nível (i+1) aberto
-    pilha = [None] * MAX_NIVEIS
-    topico_atual = None  # último tópico criado, para anexar continuações de texto
+    pilha = [None] * MAX_NIVEIS       # pilha[i] = último tópico aberto no nível i+1
+    topico_atual = None
 
-    for linha_bruta in texto.splitlines():
+    ultimo_nivel1 = 0                 # último número de nível 1 aceito
+    # contadores_filhos[id(topico)] = próximo número de filho esperado
+    contadores_filhos = {}
+    reinicio_ja_ocorreu = False       # a detecção de reinício só pode disparar 1 vez
+
+    avisos = []
+
+    def contador_filho_esperado(pai):
+        return contadores_filhos.get(id(pai), 1)
+
+    def registrar_filho_aceito(pai, numero_filho):
+        contadores_filhos[id(pai)] = numero_filho + 1
+
+    def resetar_estado(motivo):
+        nonlocal raiz, pilha, topico_atual, ultimo_nivel1, contadores_filhos
+        avisos.append(motivo)
+        raiz = []
+        pilha = [None] * MAX_NIVEIS
+        topico_atual = None
+        ultimo_nivel1 = 0
+        contadores_filhos = {}
+
+    for num_linha, linha_bruta in enumerate(texto.splitlines(), start=1):
         linha = linha_bruta.strip()
         if not linha:
             continue
 
+        # --- Ignora linhas com cara de entrada de sumário/índice --------
+        if TOC_LINE_RE.search(linha):
+            avisos.append(
+                f"Linha {num_linha} ignorada (parece entrada de sumário/índice): {linha!r}"
+            )
+            continue
+
         m = TOPICO_RE.match(linha)
         if m:
-            numero, resto = m.groups()
-            nivel = numero.count(".") + 1
+            numero_str, resto = m.groups()
+            segmentos = [int(s) for s in numero_str.split(".")]
+            nivel = len(segmentos)
 
             if nivel > MAX_NIVEIS:
-                # segurança: numeração mais profunda que o esperado,
-                # trata como continuação de texto em vez de novo nível
                 if topico_atual is not None:
                     topico_atual["texto"] += " " + linha
                 continue
 
-            novo = _novo_topico(numero, resto)
+            valido = False
 
             if nivel == 1:
-                raiz.append(novo)
+                n = segmentos[0]
+                if n == ultimo_nivel1 + 1:
+                    valido = True
+                elif n == 1 and ultimo_nivel1 >= 1:
+                    # Reinício em "1" após já termos avançado -> sinal de
+                    # que tudo até aqui era sumário/pré-textual.
+                    resetar_estado(
+                        f"Linha {num_linha}: reinício detectado em '{numero_str}' "
+                        f"(numeração já havia avançado até {ultimo_nivel1}). "
+                        f"Conteúdo anterior descartado como sumário/pré-textual."
+                    )
+                    valido = True
+                    reinicio_ja_ocorreu = True
             else:
-                pai = pilha[nivel - 2]  # nível pai = nivel - 1 -> índice nivel-2
+                pai = pilha[nivel - 2]
                 if pai is not None:
-                    pai["subtopicos"].append(novo)
-                else:
-                    # não encontrou pai (numeração fora de ordem) ->
-                    # promove para a raiz para não perder o conteúdo
+                    esperado = contador_filho_esperado(pai)
+                    if segmentos[-1] == esperado:
+                        valido = True
+
+            if valido:
+                novo = _novo_topico(numero_str, resto)
+
+                if nivel == 1:
                     raiz.append(novo)
+                    ultimo_nivel1 = segmentos[0]
+                else:
+                    pai = pilha[nivel - 2]
+                    pai["subtopicos"].append(novo)
+                    registrar_filho_aceito(pai, segmentos[-1])
 
-            pilha[nivel - 1] = novo
-            # limpa níveis mais profundos, pois um novo tópico "fecha" os filhos anteriores
-            for i in range(nivel, MAX_NIVEIS):
-                pilha[i] = None
+                pilha[nivel - 1] = novo
+                for i in range(nivel, MAX_NIVEIS):
+                    pilha[i] = None
 
-            topico_atual = novo
-            continue
+                topico_atual = novo
+                continue
+            else:
+                avisos.append(
+                    f"Linha {num_linha} rejeitada (fora da sequência esperada): {linha!r}"
+                )
+            # se não validou, cai para tratar como continuação de texto
 
-        # --- Linha de continuação (não bate com o padrão de numeração) ---
+        # --- Linha de continuação -----------------------------------
         if topico_atual is not None:
             topico_atual["texto"] += " " + linha
         # se ainda não há nenhum tópico aberto, a linha é ignorada
-        # (ex.: título do documento, cabeçalho, etc.)
+        # (ex.: capa, título do documento, cabeçalho, etc.)
 
+    if retornar_avisos:
+        return raiz, avisos
     return raiz
 
 
@@ -126,12 +224,16 @@ def main():
     with open(caminho_entrada, "r", encoding="utf-8") as f:
         texto = f.read()
 
-    topicos = parse_topicos(texto)
+    topicos, avisos = parse_topicos(texto, retornar_avisos=True)
 
     with open(caminho_saida, "w", encoding="utf-8") as f:
         json.dump(topicos, f, ensure_ascii=False, indent=2)
 
     print(f"{len(topicos)} tópico(s) de nível 1 encontrados. Resultado salvo em '{caminho_saida}'.")
+    if avisos:
+        print("\nAvisos:")
+        for a in avisos:
+            print(f"  - {a}")
 
 
 # ---------------------------------------------------------------------------

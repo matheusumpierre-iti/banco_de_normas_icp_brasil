@@ -19,6 +19,11 @@ import json
 import os
 import sys
 
+# ---------------------------------------------------------------------------
+# Estrutura de suporte para validar ordem de dispositivos
+# ---------------------------------------------------------------------------
+
+log_sequencial =  {'artigo':1,'paragrafo':1,'inciso':1,'tópico':1,'ntópico':1}
 
 # ---------------------------------------------------------------------------
 # Padrões (regex) para reconhecer cada tipo de dispositivo legal
@@ -123,12 +128,17 @@ def parse_lei(texto: str):
 
         # --- Novo artigo -----------------------------------------------
         m_art = ART_RE.match(linha)
+        sequencia = log_sequencial.copy()
         if m_art:
             numero, resto = m_art.groups()
-            artigo_atual = _novo_artigo(numero, resto)
-            artigos.append(artigo_atual)
-            paragrafo_atual = None
-            inciso_atual = None
+            if numero == f'{sequencia['artigo']}':
+                sequencia['artigo'] += 1
+                artigo_atual = _novo_artigo(numero, resto)
+                artigos.append(artigo_atual)
+                paragrafo_atual = None
+                inciso_atual = None
+            else:
+                continue
             continue
 
         if artigo_atual is None:
@@ -218,7 +228,7 @@ def parser(entrada:str, saida):
 # ---------------------------------------------------------------------------
 # Exemplo de uso direto (executar este arquivo sem argumentos roda o exemplo)
 # ---------------------------------------------------------------------------
-'''if __name__ == "__main__":
+if __name__ == "__main__":
     if len(sys.argv) > 1:
         main()
     else:
@@ -239,5 +249,5 @@ II - exercem atividade pecuária.
 Art. 3º Esta Lei entra em vigor na data de sua publicação.
 Parágrafo único. Revogam-se as disposições em contrário.
 """
-        resultado = parse_lei(doc.text)
-        texto_json = json.dumps(resultado, ensure_ascii=False, indent=2)'''
+        resultado = parse_lei(exemplo)
+        print(json.dumps(resultado, ensure_ascii=False, indent=2))
