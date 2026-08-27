@@ -10,7 +10,6 @@ client = MongoClient(uri, server_api=ServerApi('1'))
 
 # Send a ping to confirm a successful connection
 
-
 if __name__ == '__main__':
     try:
         client.admin.command('ping')

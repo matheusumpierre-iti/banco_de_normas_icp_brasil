@@ -1,5 +1,7 @@
 from typing import Any
+import os
 from parser_lei import parse_lei
+from parser_tabelas import parse_tabelas_pdf
 from db import client
 from date_spacy import find_dates
 from parser_topicos import parse_topicos
@@ -80,6 +82,26 @@ DATA = {'janeiro':'01',
         'dezembro':'12'}
 
 #Funções globais
+
+def upload_json(ato):
+    nome_collection = ato.metadados['urn']
+    lista_json = [ato.metadados, ato.dispositivos_legais, ato.topicos, ato.tabelas]
+    db = client['atos_normativos']
+    db.create_collection(nome_collection)
+    cursor = db.get_collection(nome_collection)
+
+    for json in lista_json:
+        try:
+            cursor.insert_one(json)
+            print('JSON único inserido na coleção')
+        except:
+            try:
+                cursor.insert_many(json)
+                print('Lista JSON inserida na coleção')
+            except:
+                print('Falha ao inserir JSON')
+                continue
+
 def validar_sequencia(texto: Doc):
     doc = texto
     log_sequencial = {'artigo':1,'paragrafo':1,'inciso':1}
@@ -105,7 +127,7 @@ def validar_sequencia(texto: Doc):
                 continue
 
 def salvar_json(dicionarios:list, arquivo:str):
-    with open(arquivo, 'w', encoding='utf8') as file:
+    with open(arquivo, 'x', encoding='utf8') as file:
         file.write(dicionarios[0])
     for dicionario in dicionarios[1:]:
         with open(arquivo, 'a', encoding='utf8') as file:
@@ -115,12 +137,13 @@ def obter_data(doc):
     for token in doc:
         if token.text.lower() in DATA.keys():
             span = doc[token.i-2:token.i+3]
-            return span.text
+            return span.text.replace(r'\n', ' ')
 
 def converter_data(texto):
-    m = re.match(r"(\d{1,2}) de (\w+) de (\d{4})", texto.strip(), re.IGNORECASE)
+    m = re.match(r"(\d{1,2}) de (\w+) de (\d{4})", texto.strip().replace(r'\n', ''), re.IGNORECASE)
     if not m:
-        raise ValueError(f"Formato não reconhecido: {texto!r}")
+        #raise ValueError(f"Formato não reconhecido: {texto!r}")
+        return('Data não identificada')
     dia, mes_nome, ano = m.groups()
     mes = DATA.get(mes_nome.lower())
     if mes is None:
@@ -156,6 +179,7 @@ class AtoNormativo:
             self.dispositivos = self.__classificar_dispositivos()
             self.metadados_json = json.dumps(self.__obter_metadados(), ensure_ascii=False, indent=2)
             self.json = json.dumps(self.metadados_json + self.json_dispositivos_legais + self.json_topicos, ensure_ascii=False, indent=2)
+            self.tabelas = self.__processar_tabelas()
 
     def __processar_nlp(self):
         self.doc = MODELO_NLP(self.texto)
@@ -336,6 +360,9 @@ class AtoNormativo:
 
         return self.metadados
 
+    def __processar_tabelas(self):
+        return parse_tabelas_pdf(self.origem)
+
 class DispositivoNormativo():
     def __init__(self, texto:str, origem: AtoNormativo, tipo:str, indice_texto:str, indice_doc:int, dispositivo_pai: Optional[str] = None) -> None:
         self.origem:AtoNormativo = origem
@@ -419,42 +446,37 @@ class DispositivoNormativo():
 
     
 #testes
-d = AtoNormativo(r"C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\Resolucao152_revogada.odt", True)
-doc = d.doc
+ato = AtoNormativo(r"C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\DOC-ICP-03.02_v.2.0_REQUISITOS_MÍNIMOS_SEGURANÇA_PSBIO.pdf", True)
+doc = ato.doc
 
 
  
 #result = atos_normativos.insert_many(data)
 #print(result.acknowledged)
 
-salvar_json([d.metadados_json, d.json_dispositivos_legais, d.json_topicos], 'teste.json')
+
+
+def processar_batch(diretorio: str, local: bool = True):
+    arquivos = os.listdir(diretorio)
+    for arquivo in arquivos:
+        arquivopdf = fr'{diretorio}\{arquivo}'
+        ato = AtoNormativo(arquivopdf, True)
+        if local == True:
+            salvar_json([ato.metadados, ato.dispositivos_legais, ato.topicos, ato.tabelas], fr'{diretorio}\json\{arquivo.split('_')[0]}.json')
+            print('Salvar JSON: Sucesso')
+        else:
+            upload_json(ato)
+
+    return None
 
 #-----------------------------
 # Processos de banco de dados
 #-----------------------------
 
-nome_collection = d.metadados['urn']
-
-db = client['atos_normativos']
-
-try:
-    db.create_collection(nome_collection)
-except:
-    pass
 
 
+processar_batch(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\teste_batch', False)
 
-try:
-    db.get_collection(nome_collection).insert_many(d.dispositivos_legais)
-except:
-    pass
-
-try:
-    db.get_collection(nome_collection).insert_many(d.topicos)
-except:
-    pass
-
-
-print('teste inserido na coleção')
+#DB.get_collection('teste').insert_many(ato.tabelas)
 
 client.close()

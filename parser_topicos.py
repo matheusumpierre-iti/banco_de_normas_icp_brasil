@@ -32,6 +32,13 @@ Regras de validação aplicadas:
      numeração já havia avançado além de 1, entende-se que tudo
      coletado até ali era sumário/pré-textual — o resultado acumulado
      é DESCARTADO e a leitura recomeça a partir desse ponto.
+     Esse reinício só é aceito UMA VEZ por documento: se "1" aparecer
+     de novo fora de sequência depois que o reinício já foi usado,
+     ele é tratado como qualquer outra violação de sequência (vira
+     continuação de texto do tópico aberto), sem apagar o conteúdo
+     já coletado. Isso evita que um documento com reinícios legítimos
+     de numeração (ex.: um anexo que recomeça em "1.") tenha seu
+     corpo principal apagado por engano.
      Além disso, linhas com "cara" de entrada de sumário (pontilhado
      seguido de número de página, ex.: "1. Introdução ....... 5") são
      ignoradas mesmo que a numeração faça sentido, pois não fazem
@@ -125,13 +132,14 @@ def parse_topicos(texto: str, retornar_avisos: bool = False):
         contadores_filhos[id(pai)] = numero_filho + 1
 
     def resetar_estado(motivo):
-        nonlocal raiz, pilha, topico_atual, ultimo_nivel1, contadores_filhos
+        nonlocal raiz, pilha, topico_atual, ultimo_nivel1, contadores_filhos, reinicio_ja_ocorreu
         avisos.append(motivo)
         raiz = []
         pilha = [None] * MAX_NIVEIS
         topico_atual = None
         ultimo_nivel1 = 0
         contadores_filhos = {}
+        reinicio_ja_ocorreu = True
 
     for num_linha, linha_bruta in enumerate(texto.splitlines(), start=1):
         linha = linha_bruta.strip()
@@ -162,16 +170,21 @@ def parse_topicos(texto: str, retornar_avisos: bool = False):
                 n = segmentos[0]
                 if n == ultimo_nivel1 + 1:
                     valido = True
-                elif n == 1 and ultimo_nivel1 >= 1:
+                elif n == 1 and ultimo_nivel1 >= 1 and not reinicio_ja_ocorreu:
                     # Reinício em "1" após já termos avançado -> sinal de
                     # que tudo até aqui era sumário/pré-textual.
+                    # Só é permitido UMA VEZ por documento (ver docstring).
                     resetar_estado(
                         f"Linha {num_linha}: reinício detectado em '{numero_str}' "
                         f"(numeração já havia avançado até {ultimo_nivel1}). "
                         f"Conteúdo anterior descartado como sumário/pré-textual."
                     )
                     valido = True
-                    reinicio_ja_ocorreu = True
+                # elif n == 1 e reinicio_ja_ocorreu: 'valido' permanece False
+                # de propósito -> cai no bloco genérico de rejeição abaixo,
+                # que já registra o aviso e trata a linha como continuação
+                # de texto do tópico aberto (não apaga nada do que já foi
+                # coletado).
             else:
                 pai = pilha[nivel - 2]
                 if pai is not None:
