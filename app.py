@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+import pandas as pd
 import streamlit as st
 from pymongo import MongoClient
 from db import configurar_ambiente, configurar_login
@@ -26,7 +27,6 @@ with st.sidebar:
     st.header("Conexão")
     mongo_uri = URI
     db_name = st.text_input("Banco de dados", value="atos_normativos")
-    collection_name = st.text_input("Coleção", value="minha_colecao")
     conectar = st.button("Conectar", width='stretch')
 
 if "conectado" not in st.session_state:
@@ -65,12 +65,15 @@ def listar_documentos(filtro: dict | None = None, limite: int = 50):
     filtro = filtro or {}
     return list(collection.find(filtro).limit(limite))
 
+def buscar_texto(texto_busca:str):
+    busca = collection.find({'$text':{'$search':texto_busca}})
+    resultado = [doc for doc in busca]
+    return resultado
 
 def criar_documento(dados: dict):
     """TODO: troque pela sua função de criação."""
     resultado = collection.insert_one(dados)
     return resultado.inserted_id
-
 
 def atualizar_documento(doc_id: str, dados: dict):
     """TODO: troque pela sua função de atualização."""
@@ -99,6 +102,27 @@ def serializar(doc: dict) -> dict:
             out[k] = v
     return out
 
+def expandir_celula(valor):
+    """
+    Recebe o conteúdo de uma célula. Se for uma lista de objetos (dicts),
+    retorna um novo DataFrame com um objeto por linha.
+    Caso contrário, retorna None.
+    """
+    if isinstance(valor, list) and len(valor) > 0 and isinstance(valor[0], dict):
+        return pd.DataFrame(valor)
+    return None
+
+def expandir_texto(valor):
+    if isinstance(valor, str) and len(valor) > 0:
+        pass
+
+def selecionar_celula(tabela, linhas_selecionadas):
+    linha_idx, coluna_nome = linhas_selecionadas[0]
+    df = pd.DataFrame(tabela)
+    valor_celula = df.iloc[linha_idx][coluna_nome]
+    df_expandido = expandir_celula(valor_celula)
+    tabela_subtopico = st.dataframe(df_expandido, width='stretch', on_select='rerun', selection_mode='single-cell')
+    return tabela_subtopico
 
 # ==========================================================
 # ABAS: LISTAR / CRIAR / ATUALIZAR / EXCLUIR
@@ -110,28 +134,40 @@ if st.session_state.conectado:
             colecoes = [doc for doc in client['atos_normativos'].list_collection_names()]
             selecao = st.selectbox('Coleções disponíveis:', colecoes)
             collection = client[db_name][selecao]
+            collection.create_index({ "$**": "text" })
             st.session_state.pop('docs_cache', None)
+            busca = st.text_input('Busca textual')
+           
 
-aba_texto, aba_listar, aba_criar, aba_atualizar, aba_excluir = st.tabs(
-    ["📖 Texto", "📋 Listar", "➕ Criar", "✏️ Atualizar", "🗑️ Excluir"]
+
+aba_busca, aba_texto, aba_listar, aba_criar, aba_atualizar, aba_excluir = st.tabs(
+    ["🔍 Busca","📖 Texto", "📋 Listar", "➕ Criar", "✏️ Atualizar", "🗑️ Excluir"]
 )
+
+# --- BUSCA ---
+with aba_busca:
+    resultado = buscar_texto(busca)
+    for doc in resultado:
+        with st.container(border=True):
+            st.subheader(doc.get('texto'))
+            if doc.get('subtopicos'):
+                st.write([(subtopico['numero'], subtopico['texto']) for subtopico in doc['subtopicos']])
+
 
 # --- TEXTO ----
 with aba_texto:
     st.header(collection.find_one({'titulo':{'$exists':'true'}})['titulo'].upper())
     for doc in collection.find({'texto':{'$exists':'true'}}):
-        st.subheader(doc['numero'])
-        st.write(doc['texto'])
+        st.subheader((doc['numero'] + ' - ' + doc['texto']))
         for subtopico in doc['subtopicos']:
-            st.write(subtopico['numero'],subtopico['texto'])
+            st.write(subtopico['numero'], '-',subtopico['texto'])
             
 # --- LISTAR ---
 with aba_listar:
-    st.subheader("Documentos na coleção")
+    st.header(collection.find_one({'titulo':{'$exists':'true'}})['titulo'].upper())
     limite = st.number_input("Limite de resultados", min_value=1, max_value=1000, value=50)
     if st.button("Atualizar lista"):
         st.session_state.pop("docs_cache", None)
-
     if "docs_cache" not in st.session_state:
         try:
             st.session_state.docs_cache = listar_documentos(limite=limite)
@@ -143,7 +179,21 @@ with aba_listar:
     if not docs:
         st.info("Nenhum documento encontrado.")
     else:
-        st.dataframe([serializar(d) for d in docs], width='stretch')
+        metadados = listar_documentos(limite=limite, filtro={'titulo': {'$exists':'true'}})
+        conteudo = listar_documentos(limite=limite, filtro={'texto':{'$exists':'true'}})
+        st.subheader('Metadados')
+        tabela_metadados = st.dataframe([serializar(d) for d in metadados], width='stretch')
+        st.subheader('Conteúdo')
+        tabela_conteudo = st.dataframe([serializar(d) for d in conteudo], width='stretch', on_select='rerun', selection_mode='single-cell')
+        linhas_selecionadas = tabela_conteudo.selection.cells
+        if linhas_selecionadas:
+            tabela_subtopicos = selecionar_celula(conteudo, linhas_selecionadas)
+            sub_linhas_selecionadas = tabela_subtopicos.selection.cells
+            if sub_linhas_selecionadas:
+                pass
+
+
+
 
 # --- CRIAR ---
 with aba_criar:
