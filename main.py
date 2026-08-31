@@ -1,8 +1,9 @@
 from typing import Any
 import os
+from functools import lru_cache
 from parser_lei import parse_lei
 from parser_tabelas import parse_tabelas_pdf
-from db import client
+from db import acessar_banco
 from date_spacy import find_dates
 from parser_topicos import parse_topicos
 from detectar_ementa import detectar_ementa
@@ -42,6 +43,8 @@ Token.set_extension('is_paragrafo', getter=paragrafo_getter)
 nlp = spacy.load('pt_core_news_lg')
 
 #Constantes
+client = acessar_banco()
+
 DB = client['atos_normativos']
 
 MODELO_NLP = nlp
@@ -152,6 +155,7 @@ def converter_data(texto):
 
 #Classes        
 class AtoNormativo:
+    @lru_cache(maxsize=None)
     def __init__(self, arquivo:str, nlp:bool = False) -> None:
         self.origem = arquivo
         self.url: Optional[str] = None
@@ -290,9 +294,7 @@ class AtoNormativo:
     def __obter_versao(self):
         """Busca número de versão do documento"""
         for token in self.doc[0:50]:
-            print(f'token: {token.text}')
             if token.text.lower().startswith('versão'):
-                print(f'Versão encontrada: {token.text}')
                 versao = ''
                 for char in self.doc[token.i:token.i+2].text:
                     if char.isdigit():
@@ -475,8 +477,13 @@ def processar_batch(diretorio: str, local: bool = True):
 
 
 
-processar_batch(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\teste_batch', False)
+#processar_batch(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\teste_batch', False)
 
 #DB.get_collection('teste').insert_many(ato.tabelas)
 
-client.close()
+with client as client:
+    db = client['atos_normativos']
+    print(db.list_collection_names())
+    doc = db['urn:icp.brasil:doc.icp.07.:17.08.2020']
+    i = doc.find_all({'urn':{'$exists':'true'}})
+    print(i)
