@@ -1,4 +1,6 @@
 import json
+import os
+from dotenv import dotenv_values, set_key
 from datetime import datetime
 import pandas as pd
 import streamlit as st
@@ -8,39 +10,57 @@ from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
 st.set_page_config(page_title="Demo CRUD — MongoDB", layout="wide")
-
-env = configurar_ambiente()
-db_user, db_pass = configurar_login()
+st.session_state.clear()
 
 # ==========================================================
 # CONEXÃO COM O MONGODB
 # ==========================================================
-
-URI = f"mongodb+srv://{db_user}:{db_pass}@clusterlexicp.ng8flgg.mongodb.net/?appName=ClusterLexICP"
 
 @st.cache_resource
 def get_client(uri: str) -> MongoClient:
     return MongoClient(uri, serverSelectionTimeoutMS=5000)
 
 
+if 'logado' not in st.session_state:
+    st.session_state.logado = False
+
+def login():
+    with st.sidebar:
+        with st.form('login-form'):
+            st.header('Login no banco de dados')
+            db_user = st.text_input('Usuário:', max_chars=50, type='default')
+            db_pass = st.text_input('Senha:', max_chars=50, type='password')
+
+            logar = st.form_submit_button('Logar', width='stretch')
+        if logar:
+            st.header('Teste')
+            st.session_state['db_user'] = db_user
+            st.write(db_user)
+            st.session_state['db_pass'] = db_pass
+            st.write(db_pass)
+            uri = f"mongodb+srv://{db_user}:{db_pass}@clusterlexicp.ng8flgg.mongodb.net/?appName=ClusterLexICP"
+            with get_client(uri) as client:
+                try:
+                    client.admin.command('ping')
+                    st.session_state.logado = True
+                    st.sidebar.success("Conectado com sucesso!")
+                except Exception as e:
+                    st.session_state.logado = False
+                    st.sidebar.error(f"Erro ao conectar: {e}")
+                        
+    return st.session_state.logado
+
+
 with st.sidebar:
-    st.header("Conexão")
-    mongo_uri = URI
-    db_name = st.text_input("Banco de dados", value="atos_normativos")
-    conectar = st.button("Conectar", width='stretch')
+    if st.session_state.logado == False:
+        login()
+    else:
+        st.header("Selecionar coleção")
+        db_name = st.text_input("Banco de dados", value="atos_normativos")
+        conectar = st.button("Conectar", width='stretch')
 
 if "conectado" not in st.session_state:
     st.session_state.conectado = False
-
-if conectar:
-    try:
-        client = get_client(URI)
-        client.admin.command("ping")
-        st.session_state.conectado = True
-        st.sidebar.success("Conectado com sucesso!")
-    except Exception as e:
-        st.session_state.conectado = False
-        st.sidebar.error(f"Erro ao conectar: {e}")
 
 st.title("Demonstração CRUD — MongoDB")
 
@@ -128,7 +148,7 @@ def selecionar_celula(tabela, linhas_selecionadas):
 # ABAS: LISTAR / CRIAR / ATUALIZAR / EXCLUIR
 # ==========================================================
 if st.session_state.conectado:
-    client = get_client(URI)
+    client = get_client(uri)
     with st.sidebar:
             st.write('Coleções disponíveis:')
             colecoes = [doc for doc in client['atos_normativos'].list_collection_names()]

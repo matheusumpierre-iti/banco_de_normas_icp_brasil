@@ -70,9 +70,18 @@ def acessar_banco(db_user, db_pass):
 
     # Create a new client and connect to the server
 
+def login_streamlit():
+    env = configurar_ambiente()
+    credenciais = dotenv_values(env)
+    if all(credenciais):
+        return 'Ok'
+    else:
+        return 'N'
+
 # Send a ping to confirm a successful connection
 if __name__ == '__main__':
     configurar_ambiente()
     db_user, db_pass = configurar_login()
     with acessar_banco(db_user, db_pass) as client:
         print(client.list_database_names())
+        print(login_streamlit())
