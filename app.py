@@ -10,7 +10,9 @@ from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
 st.set_page_config(page_title="Demo CRUD — MongoDB", layout="wide")
-st.session_state.clear()
+
+
+
 
 # ==========================================================
 # CONEXÃO COM O MONGODB
@@ -23,6 +25,25 @@ def get_client(uri: str) -> MongoClient:
 
 if 'logado' not in st.session_state:
     st.session_state.logado = False
+    st.header(st.session_state.to_dict())
+
+
+def conectar(db_user, db_pass):
+            st.session_state.uri = f"mongodb+srv://{db_user}:{db_pass}@clusterlexicp.ng8flgg.mongodb.net/?appName=ClusterLexICP"
+            client = get_client(st.session_state.uri)
+            try:
+                client.admin.command('ping')
+                st.session_state.logado = True
+                st.sidebar.success("Conectado com sucesso!")
+                st.session_state.db_user = db_user
+                st.session_state.db_pass = db_pass
+                st.rerun()
+            except Exception as e:
+                st.session_state.logado = False
+                st.sidebar.error(f"Erro ao conectar: {e}")
+                
+                
+
 
 def login():
     with st.sidebar:
@@ -30,37 +51,28 @@ def login():
             st.header('Login no banco de dados')
             db_user = st.text_input('Usuário:', max_chars=50, type='default')
             db_pass = st.text_input('Senha:', max_chars=50, type='password')
-
             logar = st.form_submit_button('Logar', width='stretch')
         if logar:
-            st.header('Teste')
-            st.session_state['db_user'] = db_user
-            st.write(db_user)
-            st.session_state['db_pass'] = db_pass
-            st.write(db_pass)
-            uri = f"mongodb+srv://{db_user}:{db_pass}@clusterlexicp.ng8flgg.mongodb.net/?appName=ClusterLexICP"
-            with get_client(uri) as client:
-                try:
-                    client.admin.command('ping')
-                    st.session_state.logado = True
-                    st.sidebar.success("Conectado com sucesso!")
-                except Exception as e:
-                    st.session_state.logado = False
-                    st.sidebar.error(f"Erro ao conectar: {e}")
-                        
-    return st.session_state.logado
+            conectar(db_user=db_user, db_pass=db_pass)
+            st.session_state.logado = True
+
+def desconectar():
+    st.session_state.logado = False
+    st.session_state.conectado = False
+            
+
 
 
 with st.sidebar:
     if st.session_state.logado == False:
         login()
     else:
-        st.header("Selecionar coleção")
-        db_name = st.text_input("Banco de dados", value="atos_normativos")
-        conectar = st.button("Conectar", width='stretch')
+        st.session_state.conectado = True
+        
 
 if "conectado" not in st.session_state:
     st.session_state.conectado = False
+
 
 st.title("Demonstração CRUD — MongoDB")
 
@@ -147,8 +159,9 @@ def selecionar_celula(tabela, linhas_selecionadas):
 # ==========================================================
 # ABAS: LISTAR / CRIAR / ATUALIZAR / EXCLUIR
 # ==========================================================
-if st.session_state.conectado:
-    client = get_client(uri)
+if st.session_state.logado:
+    client = get_client(st.session_state.uri)
+    db_name = 'atos_normativos'
     with st.sidebar:
             st.write('Coleções disponíveis:')
             colecoes = [doc for doc in client['atos_normativos'].list_collection_names()]
