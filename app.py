@@ -28,8 +28,8 @@ if 'logado' not in st.session_state:
     st.header(st.session_state.to_dict())
 
 
-def conectar(db_user, db_pass):
-            st.session_state.uri = f"mongodb+srv://{db_user}:{db_pass}@clusterlexicp.ng8flgg.mongodb.net/?appName=ClusterLexICP"
+def conectar(db_user, db_pass, sufixo_uri):
+            st.session_state.uri = f"mongodb+srv://{db_user}:{db_pass}@{sufixo_uri}"
             client = get_client(st.session_state.uri)
             try:
                 client.admin.command('ping')
@@ -37,6 +37,7 @@ def conectar(db_user, db_pass):
                 st.sidebar.success("Conectado com sucesso!")
                 st.session_state.db_user = db_user
                 st.session_state.db_pass = db_pass
+                st.session_state.sufixo_uri = sufixo_uri
                 st.rerun()
             except Exception as e:
                 st.session_state.logado = False
@@ -51,9 +52,10 @@ def login():
             st.header('Login no banco de dados')
             db_user = st.text_input('Usuário:', max_chars=50, type='default')
             db_pass = st.text_input('Senha:', max_chars=50, type='password')
+            sufixo_uri = st.text_input('Sufixo da URI do banco de dados (após o @):', max_chars=200, type='default')
             logar = st.form_submit_button('Logar', width='stretch')
         if logar:
-            conectar(db_user=db_user, db_pass=db_pass)
+            conectar(db_user=db_user, db_pass=db_pass, sufixo_uri=sufixo_uri)
             st.session_state.logado = True
 
 def desconectar():

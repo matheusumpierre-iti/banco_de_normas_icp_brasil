@@ -11,8 +11,9 @@ def configurar_ambiente():
         with open('.env','x') as file:
             pass
         with open('.env','a') as file:
-            file.write('\nDB_USER=\n')
-            file.write('\nDB_PASSWORD=\n')
+            file.write('DB_USER=\n')
+            file.write('DB_PASSWORD=\n')
+            file.write('DB_SUFIXO_URI=\n')
     else:
         with open('.env', 'a+') as file:
             file.seek(0)
@@ -20,7 +21,7 @@ def configurar_ambiente():
                 pass
             else:
                 file.seek(0)
-                file.write('\nDB_USER=\n')
+                file.write('DB_USER=\n')
 
         with open('.env', 'a+') as file:
             file.seek(0)
@@ -28,32 +29,47 @@ def configurar_ambiente():
                 pass
             else:
                 file.seek(0)
-                file.write('\nDB_PASSWORD=\n')
+                file.write('DB_PASSWORD=\n')
+
+        with open('.env', 'a+') as file:
+            file.seek(0)
+            if 'DB_SUFIXO_URI' in file.read():
+                pass
+            else:
+                file.seek(0)
+                file.write('DB_SUFIXO_URI=\n')
+
     env = Path('.env')
     return env
 
-def configurar_login():
-    env = configurar_ambiente()
-    db_user = dotenv_values(env)['DB_USER']
-    db_pass = dotenv_values(env)['DB_PASSWORD']
-
-    if len(db_user) < 3:
+def configurar_login(env):
+    try:
+        db_user = dotenv_values(env)['DB_USER']
+        db_pass = dotenv_values(env)['DB_PASSWORD']
+        sufixo_uri = dotenv_values(env)['DB_SUFIXO_URI']
+        if db_user == '' or db_pass == '' or db_user == '':
+            sufixo_uri = input('Sufixo da URI do banco de dados (string após o @):').strip()
             db_user = input('Nome de usuário do banco de dados:').strip()
-            set_key(env,'DB_USER',db_user)
-    
-    if len(db_pass) < 3:
             db_pass = input('Senha do banco de dados:').strip()
+            set_key(env, 'DB_SUFIXO_URI', sufixo_uri)
+            set_key(env,'DB_USER',db_user)
             set_key(env,'DB_PASSWORD', db_pass)
-    
-    return db_user, db_pass
+        else:
+            return db_user, db_pass, sufixo_uri
+    except:
+        sufixo_uri = input('Sufixo da URI do banco de dados (string após o @):').strip()
+        db_user = input('Nome de usuário do banco de dados:').strip()
+        db_pass = input('Senha do banco de dados:').strip()
+        set_key(env, 'DB_SUFIXO_URI', sufixo_uri)
+        set_key(env,'DB_USER',db_user)
+        set_key(env,'DB_PASSWORD', db_pass)
+    return db_user, db_pass, sufixo_uri
 
-def acessar_banco(db_user, db_pass):
+def acessar_banco(db_user, db_pass, sufixo_uri):
     env = configurar_ambiente()
-    db_user, db_pass = configurar_login()
+    db_user, db_pass, sufixo_uri = configurar_login(env)
 
-    uri = f"mongodb+srv://{db_user}:{db_pass}@clusterlexicp.ng8flgg.mongodb.net/?appName=ClusterLexICP"
-
-    client = MongoClient(uri, server_api=ServerApi('1'))
+    uri = f"mongodb+srv://{db_user}:{db_pass}@{sufixo_uri}"
 
     try:
         with MongoClient(uri, server_api=ServerApi('1')) as client:
@@ -63,10 +79,16 @@ def acessar_banco(db_user, db_pass):
     except:
         set_key(env, 'DB_USER', '')
         set_key(env, 'DB_PASSWORD', '')
-        raise ConfigurationError('Usuário ou senha inválidos. Tente novamente.')
+        set_key(env, 'DB_SUFIXO_URI', '')
+        raise ConfigurationError('Usuário, senha ou endereço do banco de dados inválido. Tente novamente.')
         return client
         
 
+def pipeline_login():
+    env = configurar_ambiente()
+    db_user, db_pass, sufixo_uri = configurar_login(env)
+    client = acessar_banco(db_user, db_pass, sufixo_uri)
+    return client
 
     # Create a new client and connect to the server
 
@@ -80,8 +102,8 @@ def login_streamlit():
 
 # Send a ping to confirm a successful connection
 if __name__ == '__main__':
-    configurar_ambiente()
-    db_user, db_pass = configurar_login()
-    with acessar_banco(db_user, db_pass) as client:
+    env = configurar_ambiente()
+    db_user, db_pass, sufixo_uri = configurar_login(env)
+    with acessar_banco(db_user, db_pass, sufixo_uri) as client:
         print(client.list_database_names())
         print(login_streamlit())

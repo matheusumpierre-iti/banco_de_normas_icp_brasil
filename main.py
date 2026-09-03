@@ -1,9 +1,11 @@
 from typing import Any
 import os
+from sys import executable
+from subprocess import run
 from functools import lru_cache
 from parser_lei import parse_lei
 from parser_tabelas import parse_tabelas_pdf
-from db import acessar_banco
+from db import pipeline_login
 from date_spacy import find_dates
 from parser_topicos import parse_topicos
 from detectar_ementa import detectar_ementa
@@ -16,11 +18,9 @@ from classes import ExemploAtoNormativo
 from dataclasses import dataclass, field
 import pandas as pd
 import pdfplumber
-import html5lib
 import requests
 from typing import Optional, Union
 import io
-import lxml
 import spacy
 from spacy.tokens import Token
 from spacy.tokens import Doc
@@ -32,6 +32,9 @@ from bs4 import BeautifulSoup
 import pypandoc
 from pypandoc.pandoc_download import download_pandoc
 
+if pypandoc.ensure_pandoc_installed == False:
+    pypandoc.download_pandoc()
+
 #Extensões de classes
 artigo_getter = lambda token: token.text == 'Art.'
 paragrafo_getter = lambda token: token.text == '§'
@@ -40,10 +43,21 @@ Token.set_extension('is_artigo', getter=artigo_getter)
 Token.set_extension('is_paragrafo', getter=paragrafo_getter)
 
 
-nlp = spacy.load('pt_core_news_lg')
+try:
+    nlp = spacy.load('pt_core_news_lg')
+except:
+    confirmacao = input("Modelo de linguagem spacy necessário não encontrado. Instalar modelo de linguagem? (Y/N)")
+    if confirmacao.lower() == 'y':
+        try:
+            run( "python -m spacy download pt_core_news_lg", shell=True, capture_output=True)
+            print('Modelo instalado.')
+        except:
+            raise Exception ('Erro')
+    else:
+        raise Exception ("Modelo de linguagem não encontrado. Execute 'python -m spacy download pt_core_news_lg' no terminal.")
 
 #Constantes
-client = acessar_banco()
+client = pipeline_login()
 
 DB = client['atos_normativos']
 
@@ -448,7 +462,7 @@ class DispositivoNormativo():
 
     
 #testes
-ato = AtoNormativo(r"C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\DOC-ICP-03.02_v.2.0_REQUISITOS_MÍNIMOS_SEGURANÇA_PSBIO.pdf", True)
+ato = AtoNormativo(r"", True)
 doc = ato.doc
 
 
@@ -480,10 +494,3 @@ def processar_batch(diretorio: str, local: bool = True):
 #processar_batch(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\teste_batch', False)
 
 #DB.get_collection('teste').insert_many(ato.tabelas)
-
-with client as client:
-    db = client['atos_normativos']
-    print(db.list_collection_names())
-    doc = db['urn:icp.brasil:doc.icp.07.:17.08.2020']
-    i = doc.find_all({'urn':{'$exists':'true'}})
-    print(i)
