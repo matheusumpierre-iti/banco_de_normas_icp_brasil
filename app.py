@@ -172,6 +172,7 @@ if st.session_state.logado:
             collection.create_index({ "$**": "text" })
             st.session_state.pop('docs_cache', None)
             busca = st.text_input('Busca textual')
+            st.button('Desconectar', width='stretch', on_click=desconectar)
            
 
 
