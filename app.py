@@ -1,12 +1,15 @@
 import json
 from datetime import datetime
 import pandas as pd
+
 import streamlit as st
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
-st.set_page_config(page_title="Demo CRUD — MongoDB", layout="wide")
+st.set_page_config(page_title="Banco de Normas", layout="wide")
+
+readme = 'README.md'
 
 # ==========================================================
 # CONEXÃO COM O MONGODB
@@ -70,7 +73,7 @@ if "conectado" not in st.session_state:
     st.session_state.conectado = False
 
 
-st.title("Demonstração CRUD — MongoDB")
+
 
 if not st.session_state.conectado:
     st.info("Configure a conexão na barra lateral e clique em **Conectar** para começar.")
@@ -155,27 +158,86 @@ def selecionar_celula(tabela, linhas_selecionadas):
 # ==========================================================
 # ABAS: LISTAR / CRIAR / ATUALIZAR / EXCLUIR
 # ==========================================================
+
 if st.session_state.logado:
     client = get_client(st.session_state.uri)
-    meta = client['atos_normativos'].get_collection('meta').find({'colecoes':{'$exists':True}})
-    colecoes = meta.distinct('colecoes')
+    meta = client['atos_normativos'].get_collection('meta')
+    colecoes = [colecao for colecao in meta.distinct('colecoes')]
+    #colecoes = meta_colecoes.distinct('colecoes')
     db_name = 'atos_normativos'
+    st.session_state.inicial = True
+
     with st.sidebar:
-            st.write('Coleções disponíveis:')
-            selecao = st.selectbox('Coleções disponíveis:', colecoes)
-            collection = client[db_name][selecao]
-            collection.create_index({ "$**": "text" })
-            documentos = [doc for doc in collection.distinct('titulo')]
-            selecao_doc = st.selectbox('Selecione o documento',documentos)
-            st.session_state.pop('docs_cache', None)
-            busca = st.text_input('Busca textual')
-            st.button('Desconectar', width='stretch', on_click=desconectar)
-           
+            st.session_state.colecao_selecionada = False
+            st.session_state.documento_selecionado = False
+            st.markdown('# Banco de Normas')
+            selecao = st.selectbox('Coleções disponíveis:', [colecao['display_name'] for colecao in colecoes], placeholder='Selecione a coleção', index=None)
+            selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
+
+            if selecao_colecao:
+                st.session_state.colecao_selecionada = True
+                collection = client[db_name][selecao_colecao]
+                collection.create_index({ "$**": "text" })
+                documentos = [doc for doc in collection.distinct('titulo')]
+                selecao_doc = st.selectbox('Selecione o documento',documentos, placeholder='Selecione o documento', index=None)
+            else:
+                selecao_doc = None
+                st.info('Selecione uma coleção')
+
+            if selecao_doc:
+                st.session_state.pop('docs_cache', None)
+                busca = st.text_input('Busca textual')
+                st.button('Desconectar', width='stretch', on_click=desconectar)
+                st.session_state.documento_selecionado = True
+                st.session_state.inicial = False
+            elif selecao_colecao and not selecao_doc:
+                st.info('Selecione um documento.')
+                
+if st.session_state.inicial == True:
+    st.header('Banco de normas')
+    st.info('Selecione uma coleção na aba lateral.')
+    st.divider()
+    with open('README.md', encoding='utf8') as file:
+        st.markdown(file.read())
+    st.stop()
+else:
+    documento = collection.find_one({'titulo':f'{selecao_doc}'})
+    texto = documento['texto_completo'].split('\n')
+    st.caption(f'{selecao} > {selecao_doc}')
+    st.header(texto[0])
+    st.table(
+            {'Título': documento['titulo'],
+            'Data de publicação': documento['data'],
+            'Ementa':texto[1]},
+            width='content'
+        )
 
 
-aba_busca, aba_texto, aba_listar, aba_criar, aba_atualizar, aba_excluir = st.tabs(
-    ["🔍 Busca","📖 Texto", "📋 Listar", "➕ Criar", "✏️ Atualizar", "🗑️ Excluir"]
+
+aba_texto, aba_busca, aba_listar, aba_criar, aba_atualizar, aba_excluir = st.tabs(
+    ["📖 Texto Integral", "🔍 Busca", "📋 Listar", "➕ Criar", "✏️ Atualizar", "🗑️ Excluir"]
 )
+
+
+
+
+# --- TEXTO ----
+with aba_texto:
+    documento = collection.find_one({'titulo':f'{selecao_doc}'})
+    tabelas = [tabela for tabela in documento['tabelas']]
+    legendas = []
+    for tabela in tabelas:
+        legendas.append(tabela['legenda'])
+    for linha in texto[2:]:
+        if linha in legendas:
+            st.caption(linha)
+            for tabela in tabelas:
+                if tabela['legenda'] == linha:
+                    tabela_atual = [linha for linha in tabela['linhas']]
+                    st.table(tabela_atual)
+        else:
+            st.write(linha)
+    st.stop()    
 
 # --- BUSCA ---
 with aba_busca:
@@ -185,19 +247,6 @@ with aba_busca:
             st.subheader(doc.get('texto'))
             if doc.get('subtopicos'):
                 st.write([(subtopico['numero'], subtopico['texto']) for subtopico in doc['subtopicos']])
-
-
-# --- TEXTO ----
-with aba_texto:
-    documento = collection.find_one({'titulo':f'{selecao_doc}'})
-    texto = documento['texto_completo'].split('\n')
-    st.subheader = f'{selecao_doc}'
-    for linha in texto[1:]:
-        st.write(linha)
-    for tabela in documento['tabelas']:
-        st.write(tabela['legenda'])
-        st.table([linha for linha in tabela['linhas']])
-    st.stop()    
             
 # --- LISTAR ---
 with aba_listar:

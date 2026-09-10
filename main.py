@@ -508,14 +508,13 @@ with client:
         print('Ping!')
     except:
         raise RuntimeError
-    path = Path(r'C:\Users\matheus.umpierre\Projetos\banco_de_normas_icp\testes\IN2024-28_DOC_ICP_04.01.docx')
+    path = Path(r'C:\Users\matheus.umpierre\Projetos\banco_de_normas_icp\testes\IN2026_36_identificacao_requerente.docx')
     db = client['atos_normativos']
     arquivo = parser_texto_bruto(path)
     arquivo['data'] = converter_data(arquivo['data_primeira_pagina'])
     try:
-        db.create_collection('colecao_teste')
-        cursor = db.get_collection('colecao_teste')
+        cursor = db.get_collection('instrucoes_normativas')
         cursor.insert_one(arquivo)
-        print(f'Arquivo bson inserido na database')
+        print(f'Arquivo inserido na database')
     except:
         print(f'Falha ao inserir arquivo na db.')
