@@ -470,7 +470,7 @@ class DispositivoNormativo():
 
     
 #testes
-ato = AtoNormativo(r"testes\IN2026_36_identificacao_requerente.docx", True)
+ato = AtoNormativo(r"testes\IN2026_36_identificacao_requerente.docx", False)
 doc = ato.doc
 
 
@@ -508,13 +508,53 @@ with client:
         print('Ping!')
     except:
         raise RuntimeError
-    path = Path(r'C:\Users\matheus.umpierre\Projetos\banco_de_normas_icp\testes\IN2026_36_identificacao_requerente.docx')
+    pasta = r''
+    batch = os.listdir(pasta)
     db = client['atos_normativos']
-    arquivo = parser_texto_bruto(path)
+    for doc in batch[0:20]:
+        print(f'Processando arquivo {doc}...')
+        if doc.endswith('.doc'):
+            print('Formado .doc não suportado')
+            continue
+        else:
+            pass
+        arquivo = fr'{pasta}\{doc}'
+        try:
+            ato = AtoNormativo(arquivo, True)
+        except:
+            print('Erro ao processar ato normativo.')
+            continue
+        dados = {
+            'titulo_urn' : ato.titulo,
+            'texto_completo' : ato.doc.text
+        }
+
+        for key, value in ato.metadados.items():
+            dados[key] = value
+        
+        print(f'{doc} processado, enviando ao banco de dados.')
+        try:
+            cursor = db.get_collection('instrucoes_normativas')
+            cursor.insert_one(dados)
+            print(f'Arquivo inserido na database')
+        except:
+            print(f'Falha ao inserir arquivo na db.')
+
+'''if doc.endswith('.doc'):
+    print("Formato não suportado: '.doc'")
+else:
+    print(doc)
+    arquivo = parser_texto_bruto(Path(path, doc))
     arquivo['data'] = converter_data(arquivo['data_primeira_pagina'])
+    if 'revogada' in doc.lower():
+        arquivo['is_vigente'] = False
+    else:
+        arquivo['is_vigente'] = True
+    print(arquivo)
+
     try:
         cursor = db.get_collection('instrucoes_normativas')
         cursor.insert_one(arquivo)
         print(f'Arquivo inserido na database')
     except:
-        print(f'Falha ao inserir arquivo na db.')
+        print(f'Falha ao inserir arquivo na db.')'''

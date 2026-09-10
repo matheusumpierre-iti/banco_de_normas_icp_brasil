@@ -306,7 +306,7 @@ def extract_odt(path: Path) -> dict:
         "titulo": titulo,
         "data_primeira_pagina": data_primeira_pagina,
         "texto_completo": texto_completo,
-        "tabelas": tabelas,
+        "tabelas": tabelas
     }
 
 
@@ -332,7 +332,7 @@ def main():
         sys.exit(1)
 
     ext = caminho.suffix.lower()
-    if ext == ".docx":
+    if ext == ".docx" or ext == ".doc":
         resultado = extract_docx(caminho)
     elif ext == ".odt":
         resultado = extract_odt(caminho)
@@ -352,7 +352,7 @@ def main():
 
 def parser_texto_bruto(doc: Path) -> dict:
     ext = doc.suffix.lower()
-    if ext == '.docx':
+    if ext in ['.docx','.doc','']:
         parse = extract_docx(doc)
     elif ext == '.odt':
         parse = extract_odt(doc)

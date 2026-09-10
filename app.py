@@ -170,7 +170,6 @@ if st.session_state.logado:
     with st.sidebar:
             st.session_state.colecao_selecionada = False
             st.session_state.documento_selecionado = False
-            st.markdown('# Banco de Normas')
             selecao = st.selectbox('Coleções disponíveis:', [colecao['display_name'] for colecao in colecoes], placeholder='Selecione a coleção', index=None)
             selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
 
@@ -194,7 +193,6 @@ if st.session_state.logado:
                 st.info('Selecione um documento.')
                 
 if st.session_state.inicial == True:
-    st.header('Banco de normas')
     st.info('Selecione uma coleção na aba lateral.')
     st.divider()
     with open('README.md', encoding='utf8') as file:
@@ -202,13 +200,17 @@ if st.session_state.inicial == True:
     st.stop()
 else:
     documento = collection.find_one({'titulo':f'{selecao_doc}'})
-    texto = documento['texto_completo'].split('\n')
+    texto = documento['texto_completo']
     st.caption(f'{selecao} > {selecao_doc}')
-    st.header(texto[0])
+    st.header(documento['titulo'])
     st.table(
-            {'Título': documento['titulo'],
+            {'Título': documento['titulo'].replace('.', ' ').title(),
             'Data de publicação': documento['data'],
-            'Ementa':texto[1]},
+            'categoria':documento['categoria'].replace('.', ' ').title(),
+            'Ementa':documento['ementa'],
+            'URN':documento['urn']},
+            
+
             width='content'
         )
 
@@ -224,7 +226,10 @@ aba_texto, aba_busca, aba_listar, aba_criar, aba_atualizar, aba_excluir = st.tab
 # --- TEXTO ----
 with aba_texto:
     documento = collection.find_one({'titulo':f'{selecao_doc}'})
-    tabelas = [tabela for tabela in documento['tabelas']]
+    try:
+        tabelas = [tabela for tabela in documento['tabelas']]
+    except:
+        tabelas = [{'legenda':'Indisponível', 'linhas':[]}]
     legendas = []
     for tabela in tabelas:
         legendas.append(tabela['legenda'])
