@@ -1,14 +1,18 @@
 from typing import Any
 import os
+from pathlib import Path
 from sys import executable
 from subprocess import run
 from functools import lru_cache
+
+
+from db import pipeline_login
 from parser_lei import parse_lei
 from parser_tabelas import parse_tabelas_pdf
-from db import pipeline_login
-from date_spacy import find_dates
 from parser_topicos import parse_topicos
+from parser_texto_completo import parser_texto_bruto
 from detectar_ementa import detectar_ementa
+
 import re
 from docx import Document
 import json
@@ -21,14 +25,18 @@ import pdfplumber
 import requests
 from typing import Optional, Union
 import io
+
 import spacy
+from date_spacy import find_dates
 from spacy.tokens import Token
 from spacy.tokens import Doc
 from spacy.matcher import Matcher
 from spacy.matcher import PhraseMatcher
 from spacy.training import Example
 from pdfplumber.pdf import PDF
+
 from bs4 import BeautifulSoup
+
 import pypandoc
 from pypandoc.pandoc_download import download_pandoc
 
@@ -462,7 +470,7 @@ class DispositivoNormativo():
 
     
 #testes
-ato = AtoNormativo(r"", True)
+ato = AtoNormativo(r"testes\IN2026_36_identificacao_requerente.docx", True)
 doc = ato.doc
 
 
@@ -490,7 +498,24 @@ def processar_batch(diretorio: str, local: bool = True):
 #-----------------------------
 
 
-
 #processar_batch(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\teste_batch', False)
 
 #DB.get_collection('teste').insert_many(ato.tabelas)
+
+with client:
+    try:
+        client.admin.command('ping')
+        print('Ping!')
+    except:
+        raise RuntimeError
+    path = Path(r'C:\Users\matheus.umpierre\Projetos\banco_de_normas_icp\testes\IN2024-28_DOC_ICP_04.01.docx')
+    db = client['atos_normativos']
+    arquivo = parser_texto_bruto(path)
+    arquivo['data'] = converter_data(arquivo['data_primeira_pagina'])
+    try:
+        db.create_collection('colecao_teste')
+        cursor = db.get_collection('colecao_teste')
+        cursor.insert_one(arquivo)
+        print(f'Arquivo bson inserido na database')
+    except:
+        print(f'Falha ao inserir arquivo na db.')

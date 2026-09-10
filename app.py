@@ -1,18 +1,12 @@
 import json
-import os
-from dotenv import dotenv_values, set_key
 from datetime import datetime
 import pandas as pd
 import streamlit as st
 from pymongo import MongoClient
-from db import configurar_ambiente, configurar_login
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
 st.set_page_config(page_title="Demo CRUD — MongoDB", layout="wide")
-
-
-
 
 # ==========================================================
 # CONEXÃO COM O MONGODB
@@ -163,13 +157,16 @@ def selecionar_celula(tabela, linhas_selecionadas):
 # ==========================================================
 if st.session_state.logado:
     client = get_client(st.session_state.uri)
+    meta = client['atos_normativos'].get_collection('meta').find({'colecoes':{'$exists':True}})
+    colecoes = meta.distinct('colecoes')
     db_name = 'atos_normativos'
     with st.sidebar:
             st.write('Coleções disponíveis:')
-            colecoes = [doc for doc in client['atos_normativos'].list_collection_names()]
             selecao = st.selectbox('Coleções disponíveis:', colecoes)
             collection = client[db_name][selecao]
             collection.create_index({ "$**": "text" })
+            documentos = [doc for doc in collection.distinct('titulo')]
+            selecao_doc = st.selectbox('Selecione o documento',documentos)
             st.session_state.pop('docs_cache', None)
             busca = st.text_input('Busca textual')
             st.button('Desconectar', width='stretch', on_click=desconectar)
@@ -192,11 +189,15 @@ with aba_busca:
 
 # --- TEXTO ----
 with aba_texto:
-    st.header(collection.find_one({'titulo':{'$exists':'true'}})['titulo'].upper())
-    for doc in collection.find({'texto':{'$exists':'true'}}):
-        st.subheader((doc['numero'] + ' - ' + doc['texto']))
-        for subtopico in doc['subtopicos']:
-            st.write(subtopico['numero'], '-',subtopico['texto'])
+    documento = collection.find_one({'titulo':f'{selecao_doc}'})
+    texto = documento['texto_completo'].split('\n')
+    st.subheader = f'{selecao_doc}'
+    for linha in texto[1:]:
+        st.write(linha)
+    for tabela in documento['tabelas']:
+        st.write(tabela['legenda'])
+        st.table([linha for linha in tabela['linhas']])
+    st.stop()    
             
 # --- LISTAR ---
 with aba_listar:
