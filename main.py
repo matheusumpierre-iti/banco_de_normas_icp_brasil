@@ -5,7 +5,6 @@ from sys import executable
 from subprocess import run
 from functools import lru_cache
 
-
 from db import pipeline_login
 from parser_lei import parse_lei
 from parser_tabelas import parse_tabelas_pdf
@@ -17,26 +16,16 @@ import re
 from docx import Document
 import json
 import roman
-import hashlib
-from classes import ExemploAtoNormativo
-from dataclasses import dataclass, field
-import pandas as pd
 import pdfplumber
 import requests
-from typing import Optional, Union
+from typing import Optional
 import io
-
 import spacy
+from spacy.language import Language
 from date_spacy import find_dates
-from spacy.tokens import Token
-from spacy.tokens import Doc
-from spacy.matcher import Matcher
-from spacy.matcher import PhraseMatcher
-from spacy.training import Example
+from spacy.tokens import Token, Doc
 from pdfplumber.pdf import PDF
-
 from bs4 import BeautifulSoup
-
 import pypandoc
 from pypandoc.pandoc_download import download_pandoc
 
@@ -50,61 +39,73 @@ paragrafo_getter = lambda token: token.text == '§'
 Token.set_extension('is_artigo', getter=artigo_getter)
 Token.set_extension('is_paragrafo', getter=paragrafo_getter)
 
+def inicializar_nlp() -> Language:
+    try:
+        nlp = spacy.load('pt_core_news_lg')
+    except:
+        confirmacao = input("Modelo de linguagem spacy necessário não encontrado. Instalar modelo de linguagem? (Y/N)")
+        if confirmacao.lower() == 'y':
+            try:
+                run( "python -m spacy download pt_core_news_lg", shell=True, capture_output=True)
+                print('Modelo instalado.')
+            except:
+                raise Exception ('Erro')
+        else:
+            raise Exception ("Modelo de linguagem não encontrado. Execute 'python -m spacy download pt_core_news_lg' no terminal.")
+    return nlp
 
-try:
-    nlp = spacy.load('pt_core_news_lg')
-except:
-    confirmacao = input("Modelo de linguagem spacy necessário não encontrado. Instalar modelo de linguagem? (Y/N)")
-    if confirmacao.lower() == 'y':
-        try:
-            run( "python -m spacy download pt_core_news_lg", shell=True, capture_output=True)
-            print('Modelo instalado.')
-        except:
-            raise Exception ('Erro')
-    else:
-        raise Exception ("Modelo de linguagem não encontrado. Execute 'python -m spacy download pt_core_news_lg' no terminal.")
+
 
 #Constantes
-client = pipeline_login()
 
-DB = client['atos_normativos']
+def definir_constantes():
 
-MODELO_NLP = nlp
+    MODELO_NLP = inicializar_nlp()
 
-TIPO_ATO_NORMATIVO = {
-        'instrução normativa':'instrucao.normativa',
-        'instrução':'instrucao.normativa',
-        'resolução':'resolucao',
-        'portaria' : 'portaria',
-        'ofício' : 'portaria',
-        'doc-icp' : 'doc.icp'
-        }
+    TIPO_ATO_NORMATIVO = {
+            'instrução normativa':'instrucao.normativa',
+            'instrução':'instrucao.normativa',
+            'resolução':'resolucao',
+            'portaria' : 'portaria',
+            'ofício' : 'portaria',
+            'doc-icp' : 'doc.icp'
+            }
 
-PREFIXO_URN = 'urn:icp.brasil'
+    PREFIXO_URN = 'urn:icp.brasil'
 
-PREFIXO_DISPOSITIVO = {'Art.':'artigo',
-                       '§':'paragrafo',
-                       'Parágrafo':'paragrafo',
-                       'I' : 'inciso',
-                       'a)':'item'}
+    PREFIXO_DISPOSITIVO = {'Art.':'artigo',
+                        '§':'paragrafo',
+                        'Parágrafo':'paragrafo',
+                        'I' : 'inciso',
+                        'a)':'item'}
 
-HIERARQUIA_DISPOSITIVOS = {'artigo':'paragrafo',
-                           'paragrafo':'inciso',
-                           'inciso':'item',
-                           'item': None}
+    HIERARQUIA_DISPOSITIVOS = {'artigo':'paragrafo',
+                            'paragrafo':'inciso',
+                            'inciso':'item',
+                            'item': None}
 
-DATA = {'janeiro':'01',
-        'fevereiro':'02',
-        'março':'03',
-        'abril':'04',
-        'maio':'05',
-        'junho':'06',
-        'julho':'07',
-        'agosto':'08',
-        'setembro':'09',
-        'outubro':'10',
-        'novembro':'11',
-        'dezembro':'12'}
+    DATA = {'janeiro':'01',
+            'fevereiro':'02',
+            'março':'03',
+            'abril':'04',
+            'maio':'05',
+            'junho':'06',
+            'julho':'07',
+            'agosto':'08',
+            'setembro':'09',
+            'outubro':'10',
+            'novembro':'11',
+            'dezembro':'12'}
+    
+    return MODELO_NLP, TIPO_ATO_NORMATIVO, PREFIXO_URN, PREFIXO_DISPOSITIVO, HIERARQUIA_DISPOSITIVOS, DATA
+
+
+if __name__ == '__main__':
+    inicializar_nlp()
+    definir_constantes()
+    client = pipeline_login()
+
+
 
 #Funções globais
 
@@ -187,7 +188,7 @@ class AtoNormativo:
         self.pdf: Optional[PDF] = None
         self.titulo: str = ''
         self.categoria: Optional[str] = None
-        self.dispositivos: list = []
+        #self.dispositivos: list = []
         self.texto: str
         self.doc: Any = None
         self.__obter_conteudo()
@@ -202,9 +203,9 @@ class AtoNormativo:
             self.json_dispositivos_legais: str = json.dumps(parse_lei(self.doc.text), ensure_ascii=False, indent=2)
             self.topicos = parse_topicos(self.doc.text)
             self.json_topicos:str = json.dumps(parse_topicos(self.doc.text), ensure_ascii=False, indent=2)
-            self.dispositivos = self.__classificar_dispositivos()
-            self.metadados_json = json.dumps(self.__obter_metadados(), ensure_ascii=False, indent=2)
-            self.json = json.dumps(self.metadados_json + self.json_dispositivos_legais + self.json_topicos, ensure_ascii=False, indent=2)
+            #self.dispositivos = self.__classificar_dispositivos()
+            #self.metadados_json = json.dumps(self.__obter_metadados(), ensure_ascii=False, indent=2)
+            #self.json = json.dumps(self.metadados_json + self.json_dispositivos_legais + self.json_topicos, ensure_ascii=False, indent=2)
             self.tabelas = self.__processar_tabelas()
 
     def __processar_nlp(self):
@@ -470,8 +471,9 @@ class DispositivoNormativo():
 
     
 #testes
-ato = AtoNormativo(r"testes\IN2026_36_identificacao_requerente.docx", False)
-doc = ato.doc
+if __name__ == '__main__':
+    ato = AtoNormativo(r"testes\IN2026_36_identificacao_requerente.docx", True)
+    doc = ato.doc
 
 
  
@@ -493,6 +495,9 @@ def processar_batch(diretorio: str, local: bool = True):
 
     return None
 
+'''if __name__ == '__main__':
+    print(ato.doc.to_json())'''
+
 #-----------------------------
 # Processos de banco de dados
 #-----------------------------
@@ -501,44 +506,60 @@ def processar_batch(diretorio: str, local: bool = True):
 #processar_batch(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\teste_batch', False)
 
 #DB.get_collection('teste').insert_many(ato.tabelas)
-
-with client:
-    try:
-        client.admin.command('ping')
-        print('Ping!')
-    except:
-        raise RuntimeError
-    pasta = r''
-    batch = os.listdir(pasta)
-    db = client['atos_normativos']
-    for doc in batch[0:20]:
-        print(f'Processando arquivo {doc}...')
-        if doc.endswith('.doc'):
-            print('Formado .doc não suportado')
-            continue
-        else:
-            pass
-        arquivo = fr'{pasta}\{doc}'
+def inserir_batch() -> None:
+    with client:
         try:
-            ato = AtoNormativo(arquivo, True)
+            client.admin.command('ping')
+            print('Ping!')
         except:
-            print('Erro ao processar ato normativo.')
-            continue
-        dados = {
-            'titulo_urn' : ato.titulo,
-            'texto_completo' : ato.doc.text
-        }
+            raise RuntimeError
+        pasta = r''
+        batch = os.listdir(pasta)
+        db = client['atos_normativos']
+        for doc in batch[0:20]:
+            print(f'Processando arquivo {doc}...')
+            if doc.endswith('.doc'):
+                print('Formado .doc não suportado')
+                continue
+            else:
+                pass
+            arquivo = fr'{pasta}\{doc}'
+            try:
+                ato = AtoNormativo(arquivo, True)
+            except:
+                print('Erro ao processar ato normativo.')
+                continue
+            dados = {
+                'titulo_urn' : ato.titulo,
+                'texto_completo' : ato.doc.text
+            }
 
-        for key, value in ato.metadados.items():
-            dados[key] = value
-        
-        print(f'{doc} processado, enviando ao banco de dados.')
+            for key, value in ato.metadados.items():
+                dados[key] = value
+            
+            print(f'{doc} processado, enviando ao banco de dados.')
+            try:
+                cursor = db.get_collection('instrucoes_normativas')
+                cursor.insert_one(dados)
+                print(f'Arquivo inserido na database')
+            except:
+                print(f'Falha ao inserir arquivo na db.')
+
+def inserir_ato_normativo(ato: AtoNormativo) -> None:
+    with client:
         try:
-            cursor = db.get_collection('instrucoes_normativas')
-            cursor.insert_one(dados)
-            print(f'Arquivo inserido na database')
+            client.admin.command('ping')
+            print('Ping!')
         except:
-            print(f'Falha ao inserir arquivo na db.')
+            raise RuntimeError
+        db = client['atos_normativos']
+        objeto = ato.__dict__
+        cursor = db.get_collection('instrucoes_normativas')
+        cursor.insert_one(objeto)
+        print('Dados inseridos na db.')
+    pass
+
+
 
 '''if doc.endswith('.doc'):
     print("Formato não suportado: '.doc'")

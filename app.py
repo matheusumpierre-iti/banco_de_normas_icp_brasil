@@ -22,7 +22,6 @@ def get_client(uri: str) -> MongoClient:
 
 if 'logado' not in st.session_state:
     st.session_state.logado = False
-    st.header(st.session_state.to_dict())
 
 
 def conectar(db_user, db_pass, sufixo_uri):
@@ -139,6 +138,8 @@ def expandir_celula(valor):
     retorna um novo DataFrame com um objeto por linha.
     Caso contrário, retorna None.
     """
+    if 1==1:
+        pass
     if isinstance(valor, list) and len(valor) > 0 and isinstance(valor[0], dict):
         return pd.DataFrame(valor)
     return None
@@ -225,24 +226,18 @@ aba_texto, aba_busca, aba_listar, aba_criar, aba_atualizar, aba_excluir = st.tab
 
 # --- TEXTO ----
 with aba_texto:
-    documento = collection.find_one({'titulo':f'{selecao_doc}'})
-    try:
-        tabelas = [tabela for tabela in documento['tabelas']]
-    except:
-        tabelas = [{'legenda':'Indisponível', 'linhas':[]}]
+    tabelas = documento['tabelas']
     legendas = []
     for tabela in tabelas:
         legendas.append(tabela['legenda'])
-    for linha in texto[2:]:
+    for linha in documento['texto_completo'].split('\n'):
         if linha in legendas:
             st.caption(linha)
-            for tabela in tabelas:
-                if tabela['legenda'] == linha:
-                    tabela_atual = [linha for linha in tabela['linhas']]
-                    st.table(tabela_atual)
+            tabela_atual = [tabela for tabela in tabelas if tabela['legenda'] == linha][0]
+            st.table([linha for linha in tabela_atual['linhas']])
         else:
             st.write(linha)
-    st.stop()    
+    
 
 # --- BUSCA ---
 with aba_busca:
