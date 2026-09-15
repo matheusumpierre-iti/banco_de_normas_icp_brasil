@@ -106,4 +106,7 @@ if __name__ == '__main__':
     db_user, db_pass, sufixo_uri = configurar_login(env)
     with acessar_banco(db_user, db_pass, sufixo_uri) as client:
         print(client.list_database_names())
-        print(login_streamlit())
+        db = client['atos_normativos']
+        cursor = db.get_collection('instrucoes_normativas').find()
+        for doc in cursor.distinct('texto_completo'):
+            print(doc)

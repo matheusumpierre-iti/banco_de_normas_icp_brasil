@@ -33,11 +33,11 @@ if pypandoc.ensure_pandoc_installed == False:
     pypandoc.download_pandoc()
 
 #Extensões de classes
-artigo_getter = lambda token: token.text == 'Art.'
+'''artigo_getter = lambda token: token.text == 'Art.'
 paragrafo_getter = lambda token: token.text == '§'
 
 Token.set_extension('is_artigo', getter=artigo_getter)
-Token.set_extension('is_paragrafo', getter=paragrafo_getter)
+Token.set_extension('is_paragrafo', getter=paragrafo_getter)'''
 
 def inicializar_nlp() -> Language:
     try:
@@ -101,8 +101,8 @@ def definir_constantes():
 
 
 if __name__ == '__main__':
-    inicializar_nlp()
-    definir_constantes()
+    nlp = inicializar_nlp()
+    MODELO_NLP, TIPO_ATO_NORMATIVO, PREFIXO_URN, PREFIXO_DISPOSITIVO, HIERARQUIA_DISPOSITIVOS, DATA = definir_constantes()
     client = pipeline_login()
 
 
@@ -196,7 +196,6 @@ class AtoNormativo:
         if nlp == True:
             self.__processar_nlp()
             self.__obter_titulo()
-            self.__obter_hash()
             self.__classificar_ato_normativo()
             self.__obter_metadados()
             self.dispositivos_legais: list = parse_lei(self.doc.text)
@@ -472,9 +471,9 @@ class DispositivoNormativo():
     
 #testes
 if __name__ == '__main__':
-    ato = AtoNormativo(r"testes\IN2026_36_identificacao_requerente.docx", True)
+    ato = AtoNormativo(r"testes/Resolucao178_DOC-ICP-03.docx", True)
     doc = ato.doc
-
+    print(doc.text)
 
  
 #result = atos_normativos.insert_many(data)

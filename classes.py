@@ -3,6 +3,7 @@ import pdfplumber
 import requests
 import pandas as pd
 import json
+from docx import Document
 import re
 
 from main import inicializar_nlp
@@ -20,30 +21,42 @@ from spacy.tokens import Token, Doc
 from pdfplumber.pdf import PDF
 from bs4 import BeautifulSoup
 
+modelo_nlp, tipo_ato_normativo, prefixo_urn, prefixo_dispositivo, hierarquia_dispositivos, data = definir_constantes()
 
 if __name__ =='__main__':
     nlp = inicializar_nlp()
-    MODELO_NLP, TIPO_ATO_NORMATIVO, PREFIXO_URN, PREFIXO_DISPOSITIVO, HIERARQUIA_DISPOSITIVOS, DATA = definir_constantes()
 
 #Classes  
 class AtoNormativo:
     @lru_cache(maxsize=None)
-    def __init__(self, arquivo:str, nlp:bool = False) -> None:
-        self.origem = arquivo
+    def __init__(self, arquivo:str = None, nlp:bool = False, arquivo_upload: io.BytesIO = None, url: str = None) -> None:
+        if arquivo: 
+            self.origem = arquivo
+        elif arquivo_upload:
+             self.origem = arquivo_upload
+        elif url: 
+             self.origem = url
+        else:
+             raise TypeError('Insira caminho ou url do documento.')
         self.url: Optional[str] = None
         self.formatos_suportados = ['.pdf','.md','.txt','.odt','.doc','.docx']
         self.titulo: str = ''
         self.categoria: Optional[str] = None
         self.texto_completo: str
         self.doc: Any = None
-        self.__obter_conteudo()
+        if arquivo or url:
+            self.__obter_conteudo()
+        elif arquivo_upload:
+             self.texto_completo = Document(self.origem).
+             
 
         if nlp == True:
-            self.__processar_nlp()
-            self.__obter_titulo()
-            self.__processar_tabelas()
-            self.__obter_versao()
-            self.__obter_data()
+            self.modelo_nlp = modelo_nlp
+            self.__processar_nlp(self.texto_completo)
+            self.__obter_titulo(self.texto_completo)
+            self.__processar_tabelas(self.texto_completo)
+            self.__obter_versao(self.texto_completo)
+            self.__obter_data(self.texto_completo)
             self.urn = f'{PREFIXO_URN}:{self.titulo}:{self.data}'
             self.doc = None
 
@@ -60,6 +73,9 @@ class AtoNormativo:
          }
          return dicionario
 
+    def __obter_conteudo_upload(self):
+         pass
+
     def __obter_data(self):
         for token in self.doc:
             if token.text.lower() in DATA.keys():
@@ -75,7 +91,7 @@ class AtoNormativo:
         return self.data
     
     def __processar_nlp(self):
-        self.doc = MODELO_NLP(self.texto)
+        self.doc = modelo_nlp(self.texto_completo)
         return self.doc
 
     def __obter_titulo(self):
@@ -116,6 +132,8 @@ class AtoNormativo:
                 self.__processar_pdf(de_url = True)
         elif self.origem.endswith('pdf'):
             self.__processar_pdf()
+        elif self.origem.isinstance(io.BytesIO):
+             self.__processar_texto_doc()
         elif self.origem.endswith(tuple(self.formatos_suportados)):
             self.__processar_texto_doc()
         else:
@@ -160,6 +178,6 @@ class AtoNormativo:
         return self.versao
 
 if __name__ == '__main__':
-     ato = AtoNormativo(r'C:\Users\matheus.umpierre\Projetos\banco_de_normas_icp\testes\IN2024-28_DOC_ICP_04.01.docx', True)
+     ato = AtoNormativo(r'https://repositorio.iti.gov.br/instrucoes-normativas/IN2026_37_altera_DOC-ICP-05.03.htm', True)
      dicionario = json.dumps(ato.to_dict(), ensure_ascii=False)
      print(dicionario)

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from classes import AtoNormativo
 import pandas as pd
 
 import streamlit as st
@@ -280,27 +281,52 @@ with aba_listar:
 
 
 
-
 # --- CRIAR ---
+def envio_de_arquivo() -> None:
+    st.session_state.arquivo_enviado = True
+
 with aba_criar:
     st.subheader("Criar novo documento")
-    st.caption("Informe o conteúdo do documento em formato JSON.")
-    novo_doc_texto = st.text_area(
-        "Documento (JSON)",
-        value='{\n  "nome": "exemplo",\n  "valor": 123\n}',
-        height=180,
-    )
-    if st.button("Criar documento"):
-        try:
-            dados = json.loads(novo_doc_texto)
-            novo_id = criar_documento(dados)
-            st.success(f"Documento criado com _id: {novo_id}")
-            st.session_state.pop("docs_cache", None)
-        except json.JSONDecodeError as e:
-            st.error(f"JSON inválido: {e}")
-        except Exception as e:
-            st.error(f"Erro ao criar documento: {e}")
-
+    st.write("Selecione a opção de envio via JSON ou upload de arquivo:")
+    aba_json, aba_upload = st.tabs(["JSON","Upload"])
+    with aba_json:
+        st.caption("Informe o conteúdo do documento em formato JSON.")
+        novo_doc_texto = st.text_area(
+            "Documento (JSON)",
+            value='{\n  "nome": "exemplo",\n  "valor": 123\n}',
+            height=180,
+        )
+        if st.button("Criar documento"):
+            try:
+                dados = json.loads(novo_doc_texto)
+                novo_id = criar_documento(dados)
+                st.success(f"Documento criado com _id: {novo_id}")
+                st.session_state.pop("docs_cache", None)
+            except json.JSONDecodeError as e:
+                st.error(f"JSON inválido: {e}")
+            except Exception as e:
+                st.error(f"Erro ao criar documento: {e}")
+    with aba_upload:
+        st.session_state.arquivo_enviado = False
+        envio = st.file_uploader("Envie o arquivo em formato .docx", accept_multiple_files=False, on_change=envio_de_arquivo)
+        if envio:
+            if envio.readable() and envio.name.endswith('.docx'):
+                st.info('Envio feito com sucesso.')
+                st.session_state.arquivo_enviado = True
+            else:
+                st.error('Arquivo com erro ou não suportado. Verifique se está no formato .docx')
+            arquivo_upload = AtoNormativo(arquivo_upload=envio, nlp=False).texto_completo
+            colunas1 = st.columns(2)
+            with colunas1[0]:
+                st.caption('**Texto completo do arquivo enviado:**')
+                paragrafos = [paragraph.text for paragraph in arquivo_upload.paragraphs]
+                with st.container(border=True, width='content', height=300):
+                    for paragraph in arquivo_upload.paragraphs:
+                        st.write(paragraph.text)
+                        paragrafos.append(paragraph.text)
+            with colunas1[1]:
+                st.text_area('Editar texto',placeholder=paragrafos)
+            
 # --- ATUALIZAR ---
 with aba_atualizar:
     st.subheader("Atualizar documento existente")
