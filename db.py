@@ -3,8 +3,24 @@ from pymongo import MongoClient
 from pymongo.errors import ConfigurationError, OperationFailure
 import os
 from pathlib import Path
+from datetime import datetime
+import json
 from dotenv import dotenv_values, load_dotenv, set_key
 from pymongo.server_api import ServerApi
+from pymongo import MongoClient
+from bson.objectid import ObjectId
+from bson.errors import InvalidId
+
+
+def serializar(doc: dict) -> dict:
+    """Converte campos não-JSON-serializáveis (ObjectId, datetime) para string, só para exibição."""
+    out = {}
+    for k, v in doc.items():
+        if isinstance(v, (ObjectId, datetime)):
+            out[k] = str(v)
+        else:
+            out[k] = v
+    return out
 
 def configurar_ambiente():
     if not Path('.env').is_file():
@@ -102,11 +118,56 @@ def login_streamlit():
 
 # Send a ping to confirm a successful connection
 if __name__ == '__main__':
+    
+    
+    
+    def obter_comando(cursor):
+
+        prompt = 'Selecione um comando:\n Listar\n Selecionar\n\n'
+        comando = input(prompt).lower()
+
+        def selecionar_documento():
+            opcoes = {}
+            for i, collection in enumerate(cursor.find({})):
+                opcoes[i] = collection['titulo']
+            print(opcoes)
+            selecionar_opcao = input(f'Selecione pelo número:')
+            if int(selecionar_opcao) in opcoes.keys():
+                documento = cursor.find_one({'titulo':opcoes[int(selecionar_opcao)]})
+                colecao_json = json.dumps(serializar(documento), indent=2, ensure_ascii=False)
+                print(colecao_json)
+            else:
+                print('Opção não encontrada')
+
+        def listar():
+            for collection in cursor:
+                print(collection['titulo'])
+                
+
+        comandos_disponiveis = {
+                        'listar':listar,
+                        'selecionar': selecionar_documento
+                        }
+
+        if comando in comandos_disponiveis.keys():
+            resultado = comandos_disponiveis[comando]
+            resultado()
+        else:
+            print('Comando não encontrado')
+            comando = input(prompt).lower()
+
+
+        
+            
     env = configurar_ambiente()
     db_user, db_pass, sufixo_uri = configurar_login(env)
     with acessar_banco(db_user, db_pass, sufixo_uri) as client:
         print(client.list_database_names())
         db = client['atos_normativos']
-        cursor = db.get_collection('instrucoes_normativas').find()
-        for doc in cursor.distinct('texto_completo'):
-            print(doc)
+        cursor = db.get_collection('instrucoes_normativas')
+        obter_comando(cursor)
+        
+              
+        
+        
+

@@ -47,7 +47,7 @@ class AtoNormativo:
         if arquivo or url:
             self.__obter_conteudo()
         elif arquivo_upload:
-             self.texto_completo = Document(self.origem).
+             self.texto_completo = Document(self.origem)
              
 
         if nlp == True:
