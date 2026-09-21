@@ -207,7 +207,7 @@ else:
     st.header(documento['titulo'])
     st.table(
             {'Título': documento['titulo'].replace('.', ' ').title(),
-            'Data de publicação': documento['data'],
+            'Data de publicação': documento['data_publicacao'],
             'categoria':documento['categoria'].replace('.', ' ').title(),
             'Ementa':documento['ementa'],
             'URN':documento['urn']},

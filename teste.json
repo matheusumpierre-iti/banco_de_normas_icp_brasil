@@ -1,0 +1,89 @@
+{
+  "titulo": "Instrução Normativa iti nº 37, DE 29 DE abril DE 2026",
+  "numero": "37",
+  "categoria": "Instrução Normativa",
+  "data_publicacao": "2026-04-29",
+  "ementa": "Altera o Anexo da Instrução Normativa ITI nº 09, de 22 de outubro de 2020, que consolidou os Procedimentos para Identificação Biométrica na ICP-Brasil (DOC-ICP-05.03).",
+  "preambulo": "O DIRETOR-PRESIDENTE DO INSTITUTO NACIONAL DE TECNOLOGIA DA INFORMAÇÃO, no uso das atribuições que lhe foram conferidas pelo inciso VI do art. 13 do anexo I do Decreto nº 12.103, de 8 de julho de 2024, pelo art. 1º da Resolução nº 33 do Comitê Gestor da ICP-Brasil, de 21 de outubro de 2004, e pelo art. 2º da Resolução nº 163 do Comitê Gestor da ICP-Brasil, de 17 de abril de 2020, resolve:",
+  "documentos_referenciados": [
+    {
+      "referencia": "Decreto nº 12.103, de 8 de julho de 2024",
+      "tipo": "Decreto",
+      "numero": "12.103",
+      "orgao": null,
+      "documento_relacionado": null,
+      "data_publicacao": "2024-07-08"
+    },
+    {
+      "referencia": "Resolução nº 33 do Comitê Gestor da ICP-Brasil, de 21 de outubro de 2004",
+      "tipo": "Resolução",
+      "numero": "33",
+      "orgao": "Comitê Gestor da ICP-Brasil",
+      "documento_relacionado": null,
+      "data_publicacao": "2004-10-21"
+    },
+    {
+      "referencia": "Resolução nº 163 do Comitê Gestor da ICP-Brasil, de 17 de abril de 2020",
+      "tipo": "Resolução",
+      "numero": "163",
+      "orgao": "Comitê Gestor da ICP-Brasil",
+      "documento_relacionado": null,
+      "data_publicacao": "2020-04-17"
+    },
+    {
+      "referencia": "Instrução Normativa ITI nº 09, de 22 de outubro de 2020",
+      "tipo": "Instrução Normativa",
+      "numero": "09",
+      "orgao": null,
+      "documento_relacionado": null,
+      "data_publicacao": "2020-10-22"
+    }
+  ],
+  "dispositivos": [
+    {
+      "artigo": "1",
+      "caput": "O Anexo da  Instrução Normativa ITI nº 09, de 22 de outubro de 2020, (DOC-ICP 05.03) passa a vigorar com as seguintes alterações: “1.2 ............................................ .................................................... a) AR: Autoridade de Registro responsável pela identificação do requerente de um certificado digital. Entre outros procedimentos de identificação, deve coletar e submeter à AC uma ou mais biometrias para permitir a validação ou cadastro de uma biometria na Rede PSBio e verificação em Base Oficial Nacional; .......................................................” (NR) “2.4.2................................................ a)...................................................... ......................................................... d) verificação de qualidade e quantidade de minúcias da impressão digital baseada no padrão NFIQ 2.0 (aceitar score igual ou superior a 70), medida após a compressão WSQ; ........................................................” (NR) “2.5.4 A AC pode, a seu critério, manter sistema biométrico capaz de realizar operação de verificação (1:1) com o objetivo de fazer uma validação da identificação do requerente antes de submeter à transação de verificação ou atualização ao PSBio ou à Base Oficial Nacional, com objetivo de oferecer um retorno imediato do resultado desta verificação ao AGR. 2.5.4.1 Essa verificação deve ser feita apenas em dados biométricos que tenham sido aprovados pela Rede PSBio ou em Base Oficial Nacional especificada em instrução normativa da AC Raiz, devendo a AC garantir a manutenção de sua base local e da rede PSBio, utilizando as aprovações ou rejeições de transações que ocorram no seu PSBio ou nas Bases Oficiais Nacionais. 2.5.4.2 A emissão do certificado está condicionada à validação dos dados biométricos na base do PSBio ou em seu cache. 2.6........................................... 2.6.1......................................... ................................................. 2.6.5 As ACs farão uso do capítulo sobre comunicação de ocorrência de fraude ou indício da Instrução Normativa da AC Raiz que estabelece requisitos e procedimentos para a confirmação da identidade de requerente de certificado digital no âmbito da ICP-Brasil para encaminhar os dados biométricos de um suposto fraudador à AC Raiz. 2.6.6 Em caso de confirmação de fraude após análise, a AC responsável pelo cadastro (IDN) deve informar ao PSBio a necessidade de remoção do IDN da base, quando aplicável. O PSBio deverá fazer a propagação da mensagem de remoção à Rede PSBio. Devem ainda ser adotados os procedimentos de fraude conforme a Instrução Normativa da AC Raiz que estabelece requisitos e procedimentos para a confirmação da identidade de requerente de certificado digital no âmbito da ICP-Brasil. ............................................” (NR) “3.4.2 Cada PSBio credenciado na ICP-Brasil deverá realizar, obrigatoriamente, um processo de deduplicação semestral em sua base biométrica, com o objetivo de identificar e tratar registros duplicados ou inconsistentes.” (NR) “3.6.3 .......................................... a) impressão digital (indexando um dedo): para FAR (false accept rate) de 0,01%, TAR (true accept rate) de, no mínimo, 99,0%. b)   impressão digital (indexando dois dedos): para FAR de 0,01%, TAR de, no mínimo, 99,4%. c) impressão digital (indexando três ou quatro dedos): para FAR de 0,01%, TAR de, no mínimo, 99,8%. d)....................................................... .........................................................” (NR) “3.6.5 O PSBio que não atingir, no mês, o SLA (Service Level Agreement) estabelecido nos itens 3.6.1 a 3.6.4 fica impedido de prestar serviços para qualquer AC, inclusive à AC que o contratou, até a completa regularização, sem prejuízo das demais sanções aplicáveis.” (NR) “3.13.1 A base de fraudadores será mantida atualizada através da consulta ao sistema SAF, conforme Instrução Normativa da AC Raiz que estabelece requisitos e procedimentos para a confirmação da identidade de requerente de certificado digital no âmbito da ICP-Brasil.” (NR) “4....................................................... ........................................................... 4.1.2.................................................. a) na modalidade presencial, mantém-se a coleta de face e impressões digitais do requerente, conforme estabelecido neste documento; b) nas modalidades de videoconferência, Módulo Eletrônico de AR e AR Eletrônica, com batimento biométrico em Base Oficial Nacional, admite-se somente a face ou impressões digitais e face do requerente, conforme estabelecido neste documento.” (NR) “4.1.6................................................... 4.1.6.1 As ACs deverão realizar captura antecipada de minucias biométricas (face e impressão digital) possibilitando ao usuário a coleta biométrica antes de iniciar a emissão do certificado na modalidade de videoconferência com batimento biométrico em base oficial nacional ou na verificação na rede PSBio. (NR)",
+      "sufixo_urn": "art.1",
+      "incisos": [],
+      "paragrafos": []
+    },
+    {
+      "artigo": "2",
+      "caput": "Fica aprovada a versão 4.0 do Documento Procedimentos para Identificação Biométrica na ICP-Brasil (DOC-ICP-05.03);",
+      "sufixo_urn": "art.2",
+      "incisos": [],
+      "paragrafos": [
+        {
+          "paragrafo": "único",
+          "texto": "A identificação da versão do DOC-ICP-05.03 deverá ser atualizada no preâmbulo e incluída no controle de versões do anexo da Instrução Normativa ITI nº 09, de 22 de outubro de 2020.",
+          "sufixo_urn": "paragrafo.único",
+          "incisos": []
+        }
+      ]
+    },
+    {
+      "artigo": "3",
+      "caput": "Fica revogado o item 1.5 do Anexo da  Instrução Normativa ITI nº 09, de 22 de outubro de 2020.",
+      "sufixo_urn": "art.3",
+      "incisos": [],
+      "paragrafos": []
+    },
+    {
+      "artigo": "4",
+      "caput": "Esta Instrução Normativa entra em vigor em 05 de maio de 2026.",
+      "sufixo_urn": "art.4",
+      "incisos": [],
+      "paragrafos": []
+    }
+  ],
+  "controle_alteracoes": [
+    {
+      "tipo_alteracao": "passa_a_vigorar",
+      "documento_relacionado": "Instrução Normativa ITI nº 09, de 22 de outubro de 2020",
+      "trecho": "1º  O Anexo da  Instrução Normativa ITI nº 09, de 22 de outubro de 2020, (DOC-ICP 05.03) passa a vigorar com as seguintes alterações:\n“1.2 ............................................"
+    }
+  ],
+  "tabelas": [],
+  "texto_completo": "Instrução Normativa iti nº 37, DE 29 DE abril DE 2026\nAltera o Anexo da Instrução Normativa ITI nº 09, de 22 de outubro de 2020, que consolidou os Procedimentos para Identificação Biométrica na ICP-Brasil (DOC-ICP-05.03).\nO DIRETOR-PRESIDENTE DO INSTITUTO NACIONAL DE TECNOLOGIA DA INFORMAÇÃO, no uso das atribuições que lhe foram conferidas pelo inciso VI do art. 13 do anexo I do Decreto nº 12.103, de 8 de julho de 2024, pelo art. 1º da Resolução nº 33 do Comitê Gestor da ICP-Brasil, de 21 de outubro de 2004, e pelo art. 2º da Resolução nº 163 do Comitê Gestor da ICP-Brasil, de 17 de abril de 2020, resolve:\nArt. 1º  O Anexo da  Instrução Normativa ITI nº 09, de 22 de outubro de 2020, (DOC-ICP 05.03) passa a vigorar com as seguintes alterações:\n“1.2 ............................................\n....................................................\na) AR: Autoridade de Registro responsável pela identificação do requerente de um certificado digital. Entre outros procedimentos de identificação, deve coletar e submeter à AC uma ou mais biometrias para permitir a validação ou cadastro de uma biometria na Rede PSBio e verificação em Base Oficial Nacional;\n.......................................................” (NR)\n“2.4.2................................................\na)......................................................\n.........................................................\nd) verificação de qualidade e quantidade de minúcias da impressão digital baseada no padrão NFIQ 2.0 (aceitar score igual ou superior a 70), medida após a compressão WSQ;\n........................................................” (NR)\n“2.5.4 A AC pode, a seu critério, manter sistema biométrico capaz de realizar operação de verificação (1:1) com o objetivo de fazer uma validação da identificação do requerente antes de submeter à transação de verificação ou atualização ao PSBio ou à Base Oficial Nacional, com objetivo de oferecer um retorno imediato do resultado desta verificação ao AGR.\n2.5.4.1 Essa verificação deve ser feita apenas em dados biométricos que tenham sido aprovados pela Rede PSBio ou em Base Oficial Nacional especificada em instrução normativa da AC Raiz, devendo a AC garantir a manutenção de sua base local e da rede PSBio, utilizando as aprovações ou rejeições de transações que ocorram no seu PSBio ou nas Bases Oficiais Nacionais.\n2.5.4.2 A emissão do certificado está condicionada à validação dos dados biométricos na base do PSBio ou em seu cache.\n2.6...........................................\n2.6.1.........................................\n.................................................\n2.6.5 As ACs farão uso do capítulo sobre comunicação de ocorrência de fraude ou indício da Instrução Normativa da AC Raiz que estabelece requisitos e procedimentos para a confirmação da identidade de requerente de certificado digital no âmbito da ICP-Brasil para encaminhar os dados biométricos de um suposto fraudador à AC Raiz.\n2.6.6 Em caso de confirmação de fraude após análise, a AC responsável pelo cadastro (IDN) deve informar ao PSBio a necessidade de remoção do IDN da base, quando aplicável. O PSBio deverá fazer a propagação da mensagem de remoção à Rede PSBio. Devem ainda ser adotados os procedimentos de fraude conforme a Instrução Normativa da AC Raiz que estabelece requisitos e procedimentos para a confirmação da identidade de requerente de certificado digital no âmbito da ICP-Brasil.\n............................................” (NR)\n“3.4.2 Cada PSBio credenciado na ICP-Brasil deverá realizar, obrigatoriamente, um processo de deduplicação semestral em sua base biométrica, com o objetivo de identificar e tratar registros duplicados ou inconsistentes.” (NR)\n“3.6.3 ..........................................\na) impressão digital (indexando um dedo): para FAR (false accept rate) de 0,01%, TAR (true accept rate) de, no mínimo, 99,0%.\nb)   impressão digital (indexando dois dedos): para FAR de 0,01%, TAR de, no mínimo, 99,4%.\nc) impressão digital (indexando três ou quatro dedos): para FAR de 0,01%, TAR de, no mínimo, 99,8%.\nd).......................................................\n.........................................................” (NR)\n“3.6.5 O PSBio que não atingir, no mês, o SLA (Service Level Agreement) estabelecido nos itens 3.6.1 a 3.6.4 fica impedido de prestar serviços para qualquer AC, inclusive à AC que o contratou, até a completa regularização, sem prejuízo das demais sanções aplicáveis.” (NR)\n“3.13.1 A base de fraudadores será mantida atualizada através da consulta ao sistema SAF, conforme Instrução Normativa da AC Raiz que estabelece requisitos e procedimentos para a confirmação da identidade de requerente de certificado digital no âmbito da ICP-Brasil.” (NR)\n“4.......................................................\n...........................................................\n4.1.2..................................................\na) na modalidade presencial, mantém-se a coleta de face e impressões digitais do requerente, conforme estabelecido neste documento;\nb) nas modalidades de videoconferência, Módulo Eletrônico de AR e AR Eletrônica, com batimento biométrico em Base Oficial Nacional, admite-se somente a face ou impressões digitais e face do requerente, conforme estabelecido neste documento.” (NR)\n“4.1.6...................................................\n4.1.6.1 As ACs deverão realizar captura antecipada de minucias biométricas (face e impressão digital) possibilitando ao usuário a coleta biométrica antes de iniciar a emissão do certificado na modalidade de videoconferência com batimento biométrico em base oficial nacional ou na verificação na rede PSBio. (NR)\nArt. 2º  Fica aprovada a versão 4.0 do Documento Procedimentos para Identificação Biométrica na ICP-Brasil (DOC-ICP-05.03);\nParágrafo único.  A identificação da versão do DOC-ICP-05.03 deverá ser atualizada no preâmbulo e incluída no controle de versões do anexo da Instrução Normativa ITI nº 09, de 22 de outubro de 2020.\nArt. 3º  Fica revogado o item 1.5 do Anexo da  Instrução Normativa ITI nº 09, de 22 de outubro de 2020.\nArt. 4º Esta Instrução Normativa entra em vigor em 05 de maio de 2026.\nENYLSON FLAVIO MARTINEZ CAMOLESI",
+  "urn": "urn:icp.brasil.instrucao-normativa:iti-no-37:2026-04-29"
+}

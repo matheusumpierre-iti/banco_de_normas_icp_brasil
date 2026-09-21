@@ -2,8 +2,10 @@
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError, OperationFailure
 import os
+import io
 from pathlib import Path
 from datetime import datetime
+from gerar_json import gerar_json
 import json
 from dotenv import dotenv_values, load_dotenv, set_key
 from pymongo.server_api import ServerApi
@@ -116,14 +118,22 @@ def login_streamlit():
     else:
         return 'N'
 
+def processar_json_batch(pasta: str, pasta_json:str):
+        conteudo_pasta = os.listdir(Path(pasta))
+        for item in conteudo_pasta:
+            renomeado = item.removesuffix('.docx') + '.json'
+            if item.endswith('docx'):
+                item_json = gerar_json(Path(item))
+                with open(f'{pasta_json}/{renomeado}', mode='x') as file:
+                    file.write(json.dumps(item_json, indent=2, ensure_ascii=False))                    
+        pass
+
 # Send a ping to confirm a successful connection
 if __name__ == '__main__':
     
-    
-    
     def obter_comando(cursor):
 
-        prompt = 'Selecione um comando:\n Listar\n Selecionar\n\n'
+        prompt = 'Selecione um comando:\n Listar\n Processar Batch \n Selecionar\n\n'
         comando = input(prompt).lower()
 
         def selecionar_documento():
@@ -142,11 +152,19 @@ if __name__ == '__main__':
         def listar():
             for collection in cursor:
                 print(collection['titulo'])
-                
+
+        def processar_json_batch():
+            print('Pastas no diretório:')
+            print(os.listdir(Path('testes')))
+            selecionar_pasta = input('Selecione a pasta:')
+            pass
+            
+            
 
         comandos_disponiveis = {
                         'listar':listar,
-                        'selecionar': selecionar_documento
+                        'selecionar': selecionar_documento,
+                        'batch':processar_json_batch
                         }
 
         if comando in comandos_disponiveis.keys():

@@ -6,6 +6,7 @@ from subprocess import run
 from functools import lru_cache
 
 from db import pipeline_login
+from gerar_json import gerar_json
 from parser_lei import parse_lei
 from parser_tabelas import parse_tabelas_pdf
 from parser_topicos import parse_topicos
@@ -13,6 +14,7 @@ from parser_texto_completo import parser_texto_bruto
 from detectar_ementa import detectar_ementa
 
 import re
+import docx
 from docx import Document
 import json
 import roman
@@ -108,6 +110,32 @@ if __name__ == '__main__':
 
 
 #Funções globais
+
+def processar_json_batch(pasta: str, pasta_json:str, local:bool = False, upload: bool = False, colecao:str = None) -> None:
+        conteudo_pasta = os.listdir(Path(pasta))
+        if local:
+            for item in conteudo_pasta:
+                if item.endswith('.docx'):
+                    print(f'Processando item {item}...')
+                    renomeado = item.removesuffix('.docx') + '.json'
+                    caminho_item = fr'{pasta}/{item}'
+                    item_json = gerar_json(caminho_item)
+                    with open(fr'{pasta_json}/{renomeado}', mode='w', encoding='utf8') as file:
+                        file.write(json.dumps(item_json, ensure_ascii=False, indent=2))
+                    print(fr'JSON salvo em {pasta_json}/{renomeado}')
+        if upload:
+            print('Iniciando upload de arquivos')
+            db = 'atos_normativos'
+            collection = colecao
+            with client:
+                cursor = client[db][collection]
+                for arquivo in os.listdir(pasta_json):
+                    with open(fr'{pasta_json}/{arquivo}', mode='r', encoding='utf8') as file:
+                        try:
+                            cursor.insert_one(json.loads(file.read()))
+                            print('Documento enviado com sucesso!')
+                        except:
+                            print('Erro ao enviar documento.')
 
 def upload_json(ato):
     nome_collection = ato.metadados['urn']
@@ -470,10 +498,6 @@ class DispositivoNormativo():
 
     
 #testes
-if __name__ == '__main__':
-    ato = AtoNormativo(r"testes/Resolucao178_DOC-ICP-03.docx", True)
-    doc = ato.doc
-    print(doc.text)
 
  
 #result = atos_normativos.insert_many(data)
@@ -578,3 +602,7 @@ else:
         print(f'Arquivo inserido na database')
     except:
         print(f'Falha ao inserir arquivo na db.')'''
+
+
+
+
