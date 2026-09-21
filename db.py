@@ -10,6 +10,7 @@ import json
 from dotenv import dotenv_values, load_dotenv, set_key
 from pymongo.server_api import ServerApi
 from pymongo import MongoClient
+from pymongo.operations import SearchIndexModel
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
@@ -123,7 +124,7 @@ def login_streamlit():
 # Send a ping to confirm a successful connection
 if __name__ == '__main__':
     
-    def obter_comando(cursor):
+    '''def obter_comando(cursor):
 
         prompt = 'Selecione um comando:\n Listar\n Processar Batch \n Selecionar\n\n'
         comando = input(prompt).lower()
@@ -175,9 +176,32 @@ if __name__ == '__main__':
         print(client.list_database_names())
         db = client['atos_normativos']
         cursor = db.get_collection('instrucoes_normativas')
-        obter_comando(cursor)
-        
-              
-        
-        
+        obter_comando(cursor)'''
 
+def criar_index():
+    search_index_model = SearchIndexModel(
+    definition={
+        "mappings": {
+            "dynamic": True
+        },
+    },
+    name="busca_textual",
+)
+    return search_index_model
+    
+client = pipeline_login()
+modelo = criar_index()
+
+collection = client['atos_normativos']['instrucoes_normativas']
+
+cursor = collection.aggregate([{
+    "$search":{
+        "index":"busca_textual",
+        "text":{
+            "query":"teste",
+            "path":"texto_completo"
+        }},
+        }])
+
+for doc in cursor:
+    print(doc['titulo'])

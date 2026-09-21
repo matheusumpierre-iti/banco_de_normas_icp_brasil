@@ -35,5 +35,6 @@ Este projeto ainda está em fase inicial de desenvolvimento. Todas as funcionali
 - Ferramenta gráfica de comparação textual;
 - Busca textual em múltiplos documentos simultâneos;
 - Processamento de figuras e tabelas;
+- Criação de coletâneas de normativos com base em processos do Mapa de Processos;
 
 ## 

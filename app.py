@@ -1,6 +1,5 @@
 import json
 from datetime import datetime
-from classes import AtoNormativo
 import pandas as pd
 
 import streamlit as st
@@ -24,6 +23,7 @@ def get_client(uri: str) -> MongoClient:
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
+st.session_state.ferramenta = 'inicial'
 
 def conectar(db_user, db_pass, sufixo_uri):
             st.session_state.uri = f"mongodb+srv://{db_user}:{db_pass}@{sufixo_uri}"
@@ -156,6 +156,22 @@ def selecionar_celula(tabela, linhas_selecionadas):
     tabela_subtopico = st.dataframe(df_expandido, width='stretch', on_select='rerun', selection_mode='single-cell')
     return tabela_subtopico
 
+st.session_state.resultado = []
+
+def busca_textual(texto_busca:str, colecao = 'instrucoes_normativas') -> list:
+    query = texto_busca
+    db = 'atos_normativos'
+    collection = colecao
+    resultado = client[db][collection].aggregate([{
+                    "$search":{
+                        "index":"busca_textual",
+                        "text":{
+                            "query":query,
+                            "path":"texto_completo"
+                        }},
+                        }])
+    st.session_state.resultado = resultado
+
 # ==========================================================
 # ABAS: LISTAR / CRIAR / ATUALIZAR / EXCLUIR
 # ==========================================================
@@ -167,6 +183,11 @@ if st.session_state.logado:
     #colecoes = meta_colecoes.distinct('colecoes')
     db_name = 'atos_normativos'
     st.session_state.inicial = True
+    texto_busca = st.text_input('Busca no acervo normativo', width='stretch',type='search')
+    buscar_acervo = st.button('Buscar', kwargs=({'texto_busca':texto_busca}))
+    if buscar_acervo:
+        busca_textual(texto_busca)
+        st.session_state.ferramenta = 'busca'
 
     with st.sidebar:
             st.session_state.colecao_selecionada = False
@@ -193,13 +214,31 @@ if st.session_state.logado:
             elif selecao_colecao and not selecao_doc:
                 st.info('Selecione um documento.')
                 
-if st.session_state.inicial == True:
+if st.session_state.ferramenta == 'inicial':
     st.info('Selecione uma coleção na aba lateral.')
     st.divider()
     with open('README.md', encoding='utf8') as file:
         st.markdown(file.read())
     st.stop()
-else:
+elif st.session_state.ferramenta == 'busca':
+
+    def selecionar_por_busca():
+        selecao_doc = doc['titulo']
+        documento = collection.find_one({'titulo':selecao_doc})
+        st.session_state.ferramenta = 'selecao'
+
+
+    keys = 0
+    for doc in st.session_state.resultado:
+        keys += 1
+        with st.container(border=False):
+            indice_busca = doc['texto_completo'].lower().find(texto_busca.lower())
+            destaque_busca = doc['texto_completo'][indice_busca-250:indice_busca+250]
+            st.button(f"**{doc['titulo']}**\n\n{doc['data_publicacao']}\n\n'{destaque_busca}','...'", key=f'botao_{keys}', use_container_width=True)
+            
+    st.stop()
+
+elif st.session_state.ferranenta == 'selecao':
     documento = collection.find_one({'titulo':f'{selecao_doc}'})
     texto = documento['texto_completo']
     st.caption(f'{selecao} > {selecao_doc}')

@@ -605,4 +605,26 @@ else:
 
 
 
-
+with client:
+    cursor = client['atos_normativos']['instrucoes_normativas']
+    for doc in cursor.aggregate([
+            {
+                "$search": {
+                "text": {
+                   "query": "INSTRUÇÃO",
+                   "path": 'titulo'
+                }
+                }
+            },
+                    {
+                '$limit': 3
+            }, 
+            {
+                '$project': {
+                '_id': 0,
+                'titulo': 1,
+                'urn': 1
+                }
+            }
+            ]):
+        print(doc)
