@@ -226,6 +226,10 @@ testes/03_-_RESOLUÇÕES/01.04.2022/Alteradas/Resolucao171_DOC-ICP-11.docx
 
 # Testes
 /testes
+<<<<<<< HEAD
 teste.py
 app_backup.py
 testes.ipynb
+=======
+teste.py
+>>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
