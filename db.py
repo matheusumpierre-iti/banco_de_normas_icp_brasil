@@ -2,7 +2,6 @@
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError, OperationFailure
 import os
-<<<<<<< HEAD
 import io
 from pathlib import Path
 from datetime import datetime
@@ -24,11 +23,6 @@ def serializar(doc: dict) -> dict:
         else:
             out[k] = v
     return out
-=======
-from pathlib import Path
-from dotenv import dotenv_values, load_dotenv, set_key
-from pymongo.server_api import ServerApi
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
 
 def configurar_ambiente():
     if not Path('.env').is_file():
@@ -124,16 +118,7 @@ def login_streamlit():
     else:
         return 'N'
 
-<<<<<<< HEAD
-def processar_json_batch(pasta: str, pasta_json:str):
-        conteudo_pasta = os.listdir(Path(pasta))
-        for item in conteudo_pasta:
-            renomeado = item.removesuffix('.docx') + '.json'
-            if item.endswith('docx'):
-                item_json = gerar_json(Path(item))
-                with open(f'{pasta_json}/{renomeado}', mode='x') as file:
-                    file.write(json.dumps(item_json, indent=2, ensure_ascii=False))                    
-        pass
+
 
 # Send a ping to confirm a successful connection
 if __name__ == '__main__':
@@ -184,15 +169,10 @@ if __name__ == '__main__':
 
         
             
-=======
-# Send a ping to confirm a successful connection
-if __name__ == '__main__':
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
     env = configurar_ambiente()
     db_user, db_pass, sufixo_uri = configurar_login(env)
     with acessar_banco(db_user, db_pass, sufixo_uri) as client:
         print(client.list_database_names())
-<<<<<<< HEAD
         db = client['atos_normativos']
         cursor = db.get_collection('instrucoes_normativas')
         obter_comando(cursor)
@@ -201,6 +181,3 @@ if __name__ == '__main__':
         
         
 
-=======
-        print(login_streamlit())
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d

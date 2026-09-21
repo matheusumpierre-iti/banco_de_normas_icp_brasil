@@ -1,5 +1,4 @@
 import json
-<<<<<<< HEAD
 from datetime import datetime
 from classes import AtoNormativo
 import pandas as pd
@@ -12,20 +11,6 @@ from bson.errors import InvalidId
 st.set_page_config(page_title="Banco de Normas", layout="wide")
 
 readme = 'README.md'
-=======
-import os
-from pathlib import Path
-from dotenv import dotenv_values, set_key, load_dotenv
-from datetime import datetime
-import pandas as pd
-import streamlit as st
-from pymongo import MongoClient
-from db import configurar_ambiente, configurar_login
-from bson.objectid import ObjectId
-from bson.errors import InvalidId
-
-st.set_page_config(page_title="Demo CRUD — MongoDB", layout="wide")
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
 
 # ==========================================================
 # CONEXÃO COM O MONGODB
@@ -38,10 +23,6 @@ def get_client(uri: str) -> MongoClient:
 
 if 'logado' not in st.session_state:
     st.session_state.logado = False
-<<<<<<< HEAD
-=======
-    st.header(st.session_state.to_dict())
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
 
 
 def conectar(db_user, db_pass, sufixo_uri):
@@ -92,11 +73,6 @@ if "conectado" not in st.session_state:
     st.session_state.conectado = False
 
 
-<<<<<<< HEAD
-
-=======
-st.title("Demonstração CRUD — MongoDB")
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
 
 if not st.session_state.conectado:
     st.info("Configure a conexão na barra lateral e clique em **Conectar** para começar.")
@@ -162,11 +138,8 @@ def expandir_celula(valor):
     retorna um novo DataFrame com um objeto por linha.
     Caso contrário, retorna None.
     """
-<<<<<<< HEAD
     if 1==1:
         pass
-=======
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
     if isinstance(valor, list) and len(valor) > 0 and isinstance(valor[0], dict):
         return pd.DataFrame(valor)
     return None
@@ -186,7 +159,6 @@ def selecionar_celula(tabela, linhas_selecionadas):
 # ==========================================================
 # ABAS: LISTAR / CRIAR / ATUALIZAR / EXCLUIR
 # ==========================================================
-<<<<<<< HEAD
 
 if st.session_state.logado:
     client = get_client(st.session_state.uri)
@@ -267,27 +239,6 @@ with aba_texto:
             st.write(linha)
     
 
-=======
-if st.session_state.logado:
-    client = get_client(st.session_state.uri)
-    db_name = 'atos_normativos'
-    with st.sidebar:
-            st.write('Coleções disponíveis:')
-            colecoes = [doc for doc in client['atos_normativos'].list_collection_names()]
-            selecao = st.selectbox('Coleções disponíveis:', colecoes)
-            collection = client[db_name][selecao]
-            collection.create_index({ "$**": "text" })
-            st.session_state.pop('docs_cache', None)
-            busca = st.text_input('Busca textual')
-            st.button('Desconectar', width='stretch', on_click=desconectar)
-           
-
-
-aba_busca, aba_texto, aba_listar, aba_criar, aba_atualizar, aba_excluir = st.tabs(
-    ["🔍 Busca","📖 Texto", "📋 Listar", "➕ Criar", "✏️ Atualizar", "🗑️ Excluir"]
-)
-
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
 # --- BUSCA ---
 with aba_busca:
     resultado = buscar_texto(busca)
@@ -296,18 +247,6 @@ with aba_busca:
             st.subheader(doc.get('texto'))
             if doc.get('subtopicos'):
                 st.write([(subtopico['numero'], subtopico['texto']) for subtopico in doc['subtopicos']])
-<<<<<<< HEAD
-=======
-
-
-# --- TEXTO ----
-with aba_texto:
-    st.header(collection.find_one({'titulo':{'$exists':'true'}})['titulo'].upper())
-    for doc in collection.find({'texto':{'$exists':'true'}}):
-        st.subheader((doc['numero'] + ' - ' + doc['texto']))
-        for subtopico in doc['subtopicos']:
-            st.write(subtopico['numero'], '-',subtopico['texto'])
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
             
 # --- LISTAR ---
 with aba_listar:
@@ -341,7 +280,6 @@ with aba_listar:
 
 
 
-<<<<<<< HEAD
 # --- CRIAR ---
 def envio_de_arquivo() -> None:
     st.session_state.arquivo_enviado = True
@@ -388,29 +326,6 @@ with aba_criar:
             with colunas1[1]:
                 st.text_area('Editar texto',placeholder=paragrafos)
             
-=======
-
-# --- CRIAR ---
-with aba_criar:
-    st.subheader("Criar novo documento")
-    st.caption("Informe o conteúdo do documento em formato JSON.")
-    novo_doc_texto = st.text_area(
-        "Documento (JSON)",
-        value='{\n  "nome": "exemplo",\n  "valor": 123\n}',
-        height=180,
-    )
-    if st.button("Criar documento"):
-        try:
-            dados = json.loads(novo_doc_texto)
-            novo_id = criar_documento(dados)
-            st.success(f"Documento criado com _id: {novo_id}")
-            st.session_state.pop("docs_cache", None)
-        except json.JSONDecodeError as e:
-            st.error(f"JSON inválido: {e}")
-        except Exception as e:
-            st.error(f"Erro ao criar documento: {e}")
-
->>>>>>> fcf4ce6b018741599e2401b9c96f5b8a8328c27d
 # --- ATUALIZAR ---
 with aba_atualizar:
     st.subheader("Atualizar documento existente")
