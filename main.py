@@ -6,7 +6,7 @@ from subprocess import run
 from functools import lru_cache
 
 from db import pipeline_login
-from gerar_json import gerar_json
+from gerar_json_v2 import gerar_json
 from parser_lei import parse_lei
 from parser_tabelas import parse_tabelas_pdf
 from parser_topicos import parse_topicos
@@ -525,106 +525,31 @@ def processar_batch(diretorio: str, local: bool = True):
 # Processos de banco de dados
 #-----------------------------
 
+def processar_json_batch(pasta: str, pasta_json:str, local:bool = False, upload: bool = False, colecao:str = None) -> None:
+        conteudo_pasta = os.listdir(Path(pasta))
+        if local:
+            for item in conteudo_pasta:
+                if item.endswith('.docx'):
+                    print(f'Processando item {item}...')
+                    renomeado = item.removesuffix('.docx') + '.json'
+                    caminho_item = fr'{pasta}/{item}'
+                    item_json = gerar_json(caminho_item)
+                    with open(fr'{pasta_json}/{renomeado}', mode='w', encoding='utf8') as file:
+                        file.write(json.dumps(item_json, ensure_ascii=False, indent=2))
+                    print(fr'JSON salvo em {pasta_json}/{renomeado}')
+        if upload:
+            print('Iniciando upload de arquivos')
+            db = 'atos_normativos'
+            collection = colecao
+            with client:
+                cursor = client[db][collection]
+                for arquivo in os.listdir(pasta_json):
+                    with open(fr'{pasta_json}/{arquivo}', mode='r', encoding='utf8') as file:
+                        try:
+                            cursor.insert_one(json.loads(file.read()))
+                            print('Documento enviado com sucesso!')
+                        except:
+                            print('Erro ao enviar documento.')
 
-#processar_batch(r'C:\Users\matheus.umpierre\Projetos\lexml_icp_brasil_gitlab\lex_icp_brasil\testes\teste_batch', False)
+processar_json_batch('testes/batch','testes/batch/json', local=True, upload=True, colecao='instrucoes_normativas')
 
-#DB.get_collection('teste').insert_many(ato.tabelas)
-def inserir_batch() -> None:
-    with client:
-        try:
-            client.admin.command('ping')
-            print('Ping!')
-        except:
-            raise RuntimeError
-        pasta = r''
-        batch = os.listdir(pasta)
-        db = client['atos_normativos']
-        for doc in batch[0:20]:
-            print(f'Processando arquivo {doc}...')
-            if doc.endswith('.doc'):
-                print('Formado .doc não suportado')
-                continue
-            else:
-                pass
-            arquivo = fr'{pasta}\{doc}'
-            try:
-                ato = AtoNormativo(arquivo, True)
-            except:
-                print('Erro ao processar ato normativo.')
-                continue
-            dados = {
-                'titulo_urn' : ato.titulo,
-                'texto_completo' : ato.doc.text
-            }
-
-            for key, value in ato.metadados.items():
-                dados[key] = value
-            
-            print(f'{doc} processado, enviando ao banco de dados.')
-            try:
-                cursor = db.get_collection('instrucoes_normativas')
-                cursor.insert_one(dados)
-                print(f'Arquivo inserido na database')
-            except:
-                print(f'Falha ao inserir arquivo na db.')
-
-def inserir_ato_normativo(ato: AtoNormativo) -> None:
-    with client:
-        try:
-            client.admin.command('ping')
-            print('Ping!')
-        except:
-            raise RuntimeError
-        db = client['atos_normativos']
-        objeto = ato.__dict__
-        cursor = db.get_collection('instrucoes_normativas')
-        cursor.insert_one(objeto)
-        print('Dados inseridos na db.')
-    pass
-
-
-
-'''if doc.endswith('.doc'):
-    print("Formato não suportado: '.doc'")
-else:
-    print(doc)
-    arquivo = parser_texto_bruto(Path(path, doc))
-    arquivo['data'] = converter_data(arquivo['data_primeira_pagina'])
-    if 'revogada' in doc.lower():
-        arquivo['is_vigente'] = False
-    else:
-        arquivo['is_vigente'] = True
-    print(arquivo)
-
-    try:
-        cursor = db.get_collection('instrucoes_normativas')
-        cursor.insert_one(arquivo)
-        print(f'Arquivo inserido na database')
-    except:
-        print(f'Falha ao inserir arquivo na db.')'''
-
-
-
-with client:
-    cursor = client['atos_normativos']['instrucoes_normativas']
-    for doc in cursor.aggregate([
-            {
-                "$search": {
-                "text": {
-                   "query": "INSTRUÇÃO",
-                   "path": 'titulo'
-                }
-                }
-            },
-                    {
-                '$limit': 3
-            }, 
-            {
-                '$project': {
-                '_id': 0,
-                'titulo': 1,
-                'urn': 1
-                }
-            }
-            ]):
-        print(doc)

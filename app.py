@@ -7,12 +7,23 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
-st.set_page_config(page_title="Banco de Normas", layout='centered')
+st.set_page_config(page_title="Banco de Normas", layout='wide')
 
 readme = 'README.md'
 
 st.header('Banco de normas ICP-Brasil')
 st.write('Busque no acervo normativo ou selecione um documento:')
+
+debug = st.button('Exibir session_state (debug)')
+
+if debug:
+    debug = st.empty()
+    with st.container():
+       bloco_debug = st.write(st.session_state)
+       fechar_debug = st.button('Fechar bloco debug')
+       if fechar_debug:
+           bloco_debug = st.empty()
+           
 
 # ==========================================================
 # CONEXÃO COM O MONGODB
@@ -238,13 +249,12 @@ if st.session_state.ferramenta == 'busca':
             botao_selecionar = st.button(f" **{doc['titulo']}**\n\n{doc['data_publicacao']}\n\n'{destaque_busca}','...'", key=f'botao_{keys}', use_container_width=True)
             
     if botao_selecionar:
-        selecionar_por_busca()
         selecao_doc = doc['titulo']
             
 
 if st.session_state.ferramenta == 'selecao':
     documento = collection.find_one({'titulo':f'{selecao_doc}'})
-    texto = documento['texto_completo']
+    texto = documento['html']
     st.caption(f'{selecao} > {selecao_doc}')
     st.header(documento['titulo'])
     st.table(
@@ -264,58 +274,26 @@ if st.session_state.ferramenta == 'selecao':
 
     # --- TEXTO ----
     with aba_texto:
-        tabelas = documento['tabelas']
-        legendas = []
-        for tabela in tabelas:
-            legendas.append(tabela['legenda'])
-        for linha in documento['texto_completo'].split('\n'):
-            if linha in legendas:
-                st.caption(linha)
-                tabela_atual = [tabela for tabela in tabelas if tabela['legenda'] == linha][0]
-                st.table([linha for linha in tabela_atual['linhas']])
-            else:
-                st.write(linha)
+        with st.container():
+            st.markdown(texto, unsafe_allow_html=True)
+           
 
     # --- BUSCA ---
-    with aba_busca:
-        resultado = buscar_texto(busca)
-        for doc in resultado:
-            with st.container(border=True):
-                st.subheader(doc.get('texto'))
-                if doc.get('subtopicos'):
-                    st.write([(subtopico['numero'], subtopico['texto']) for subtopico in doc['subtopicos']])
+    def busca():
+        with aba_busca:
+            resultado = buscar_texto(busca)
+            for doc in resultado:
+                with st.container(border=True):
+                    st.subheader(doc.get('texto'))
+                    if doc.get('subtopicos'):
+                        st.write([(subtopico['numero'], subtopico['texto']) for subtopico in doc['subtopicos']])
                 
     # --- LISTAR ---
     with aba_listar:
-        st.header(collection.find_one({'titulo':{'$exists':'true'}})['titulo'].upper())
-        limite = st.number_input("Limite de resultados", min_value=1, max_value=1000, value=50)
-        if st.button("Atualizar lista"):
-            st.session_state.pop("docs_cache", None)
-        if "docs_cache" not in st.session_state:
-            try:
-                st.session_state.docs_cache = listar_documentos(limite=limite)
-            except Exception as e:
-                st.error(f"Erro ao buscar documentos: {e}")
-                st.session_state.docs_cache = []
-
-        docs = st.session_state.docs_cache
-        if not docs:
-            st.info("Nenhum documento encontrado.")
-        else:
-            metadados = listar_documentos(limite=limite, filtro={'titulo': {'$exists':'true'}})
-            conteudo = listar_documentos(limite=limite, filtro={'texto':{'$exists':'true'}})
-            st.subheader('Metadados')
-            tabela_metadados = st.dataframe([serializar(d) for d in metadados], width='stretch')
-            st.subheader('Conteúdo')
-            tabela_conteudo = st.dataframe([serializar(d) for d in conteudo], width='stretch', on_select='rerun', selection_mode='single-cell')
-            linhas_selecionadas = tabela_conteudo.selection.cells
-            if linhas_selecionadas:
-                tabela_subtopicos = selecionar_celula(conteudo, linhas_selecionadas)
-                sub_linhas_selecionadas = tabela_subtopicos.selection.cells
-                if sub_linhas_selecionadas:
-                    pass
-
-
+        lista_dispositivos = documento['dispositivos']
+        for dispositivo in lista_dispositivos:
+            st.write(dispositivo)
+        
 
 # --- CRIAR ---
 def envio_de_arquivo() -> None:
