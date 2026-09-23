@@ -37,7 +37,8 @@ def get_client(uri: str) -> MongoClient:
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
-st.session_state.ferramenta = 'inicial'
+if not st.session_state.ferramenta:
+    st.session_state.ferramenta = 'inicial'
 
 def conectar(db_user, db_pass, sufixo_uri):
             st.session_state.uri = f"mongodb+srv://{db_user}:{db_pass}@{sufixo_uri}"
@@ -170,9 +171,9 @@ def selecionar_celula(tabela, linhas_selecionadas):
     tabela_subtopico = st.dataframe(df_expandido, width='stretch', on_select='rerun', selection_mode='single-cell')
     return tabela_subtopico
 
-st.session_state.resultado = []
 
-def busca_textual(texto_busca:str, colecao = 'instrucoes_normativas') -> list:
+
+def busca_textual(texto_busca:str, colecao = 'instrucoes_normativas'):
     query = texto_busca
     db = 'atos_normativos'
     collection = colecao
@@ -184,7 +185,9 @@ def busca_textual(texto_busca:str, colecao = 'instrucoes_normativas') -> list:
                             "path":"texto_completo"
                         }},
                         }])
-    st.session_state.resultado = resultado
+    st.session_state.resultado = list(resultado)
+    st.session_state.ferramenta = 'busca'
+    st.session_state.selecao_colecao = colecao
 
 # ==========================================================
 # ABAS: LISTAR / CRIAR / ATUALIZAR / EXCLUIR
@@ -200,60 +203,72 @@ if st.session_state.logado:
     st.divider()
     # Alterna para o modo Busca se a barra de busca é preenchida
     texto_busca = st.text_input('Busca no acervo normativo', width=500,type='search')
-    buscar_acervo = st.button('Buscar', kwargs=({'texto_busca':texto_busca}))
-    if buscar_acervo:
-        busca_textual(texto_busca)
-        st.session_state.ferramenta = 'busca'
+    buscar_acervo = st.button('Buscar', on_click=busca_textual, kwargs=({'texto_busca':texto_busca}))
+    
 
     st.divider(width=600)
 
     #Barra de seleção de documento
     st.write('**Selecionar documento**')
     selecao = st.selectbox('Coleções disponíveis:', [colecao['display_name'] for colecao in colecoes], placeholder='Selecione a coleção', index=None, width=500)
-    selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
+    if not st.session_state.selecao_colecao:
+        st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
 
-    if selecao_colecao:
-        st.session_state.colecao_selecionada = True
-        collection = client[db_name][selecao_colecao]
-        documentos = [doc for doc in collection.distinct('titulo')]
-        selecao_doc = st.selectbox('Selecione o documento',documentos, placeholder='Selecione o documento', index=None, width=500)
-        if selecao_doc:
-            st.session_state.pop('docs_cache', None)
-            busca = st.text_input('Busca textual', width=500)
-            st.session_state.documento_selecionado = True
-            st.session_state.ferramenta = 'selecao'
-        elif selecao_colecao and not selecao_doc:
-            st.info('Selecione um documento.', width=500)
+    if st.session_state.ferramenta == 'inicial':
 
-            
+        if  st.session_state.selecao_colecao:
+            collection = client[db_name][st.session_state.selecao_colecao]
+            documentos = [doc for doc in collection.distinct('titulo')]
+            titulo_doc = st.selectbox('Selecione o documento',documentos, placeholder='Selecione o documento', index=None, width=500)
+            st.session_state.doc_selecionado = collection.find_one({'titulo':titulo_doc})
+            if st.session_state.doc_selecionado:
+                st.session_state.pop('docs_cache', None)
+                st.session_state.documento_selecionado = True
+                st.session_state.ferramenta = 'selecao'
+            elif st.session_state.selecao_colecao:
+                st.info('Selecione um documento.', width=500)
+
                 
 if st.session_state.ferramenta == 'inicial':
     st.divider(width=600)
     with open('README.md', encoding='utf8') as file:
         st.markdown(file.read())
     
+def selecionar_por_busca(doc):
+    st.session_state.pop('doc_selecionado', None)
+    st.session_state.pop('docs_cache', None)
+    st.session_state.documento_selecionado = True
+    st.session_state.ferramenta = 'selecao'
+    st.session_state.doc_selecionado = doc  # guarda o documento escolhido
+
 if st.session_state.ferramenta == 'busca':
-
-    def selecionar_por_busca():
-        st.session_state.pop('docs_cache', None)
-        st.session_state.documento_selecionado = True
-        st.session_state.ferramenta = 'selecao'
-
-
-    keys = 0
     for doc in st.session_state.resultado:
-        keys += 1
         with st.container(border=False, width='stretch'):
+            identificador = doc['titulo']
+            st.subheader(identificador)
             indice_busca = doc['texto_completo'].lower().find(texto_busca.lower())
             destaque_busca = doc['texto_completo'][indice_busca-250:indice_busca+250]
-            botao_selecionar = st.button(f" **{doc['titulo']}**\n\n{doc['data_publicacao']}\n\n'{destaque_busca}','...'", key=f'botao_{keys}', use_container_width=True)
-            
-    if botao_selecionar:
-        selecao_doc = doc['titulo']
+            st.button(
+                f"**{doc['titulo']}**\n\n{doc['data_publicacao']}\n\n'{destaque_busca}','...'",
+                use_container_width=True,
+                key=f"btn_{doc['titulo']}",  # veja o ponto 2 abaixo
+                on_click=selecionar_por_busca,
+                args=(doc,),
+            )
+                
             
 
+
 if st.session_state.ferramenta == 'selecao':
-    documento = collection.find_one({'titulo':f'{selecao_doc}'})
+    if st.session_state.selecao_colecao:
+        collection = st.session_state.selecao_colecao
+    else:
+        st.stop()
+    if st.session_state.doc_selecionado:
+         selecao_doc = st.session_state.doc_selecionado['titulo']
+    else:
+        st.stop()
+    documento = st.session_state.doc_selecionado
     texto = documento['html']
     st.caption(f'{selecao} > {selecao_doc}')
     st.header(documento['titulo'])
