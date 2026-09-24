@@ -188,20 +188,3 @@ def criar_index():
     name="busca_textual",
 )
     return search_index_model
-    
-client = pipeline_login()
-modelo = criar_index()
-
-collection = client['atos_normativos']['instrucoes_normativas']
-
-cursor = collection.aggregate([{
-    "$search":{
-        "index":"busca_textual",
-        "text":{
-            "query":"teste",
-            "path":"texto_completo"
-        }},
-        }])
-
-for doc in cursor:
-    print(doc['titulo'])

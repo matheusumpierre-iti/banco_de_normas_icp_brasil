@@ -34,11 +34,27 @@ def get_client(uri: str) -> MongoClient:
     return MongoClient(uri, serverSelectionTimeoutMS=5000)
 
 
+#-------------------------------------
+# Inicialização de variáveis da sessão
+#-------------------------------------
+
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
-if not st.session_state.ferramenta:
+if 'resultado' not in st.session_state:
+    st.session_state.resultado = []
+
+if 'ferramenta' not in st.session_state:
     st.session_state.ferramenta = 'inicial'
+
+if 'selecao_colecao' not in st.session_state:
+    st.session_state.selecao_colecao = None
+
+if 'termo_busca' not in st.session_state:
+    st.session_state.termo_busca = None
+
+if 'doc_selecionado' not in st.session_state:
+    st.session_state.doc_selecionado = None
 
 def conectar(db_user, db_pass, sufixo_uri):
             st.session_state.uri = f"mongodb+srv://{db_user}:{db_pass}@{sufixo_uri}"
@@ -175,6 +191,8 @@ def selecionar_celula(tabela, linhas_selecionadas):
 
 def busca_textual(texto_busca:str, colecao = 'instrucoes_normativas'):
     query = texto_busca
+    st.session_state.pop('docs_cache',None)
+    st.session_state.termo_busca = texto_busca
     db = 'atos_normativos'
     collection = colecao
     resultado = client[db][collection].aggregate([{
@@ -189,6 +207,10 @@ def busca_textual(texto_busca:str, colecao = 'instrucoes_normativas'):
     st.session_state.ferramenta = 'busca'
     st.session_state.selecao_colecao = colecao
 
+def limpar_selecao_documento():
+    st.session_state.pop('doc_selecionado',None)
+    st.session_state.ferramenta = 'inicial'
+
 # ==========================================================
 # ABAS: LISTAR / CRIAR / ATUALIZAR / EXCLUIR
 # ==========================================================
@@ -199,34 +221,32 @@ if st.session_state.logado:
     colecoes = [colecao for colecao in meta.distinct('colecoes')]
     #colecoes = meta_colecoes.distinct('colecoes')
     db_name = 'atos_normativos'
-    st.session_state.inicial = True
     st.divider()
+
     # Alterna para o modo Busca se a barra de busca é preenchida
     texto_busca = st.text_input('Busca no acervo normativo', width=500,type='search')
-    buscar_acervo = st.button('Buscar', on_click=busca_textual, kwargs=({'texto_busca':texto_busca}))
-    
+    with st.container(horizontal=True):
+        buscar_acervo = st.button('Buscar', on_click=busca_textual, kwargs=({'texto_busca':texto_busca}))
+        limpar_busca = st.button('Limpar', on_click=limpar_selecao_documento)
+    if not texto_busca:
+        st.session_state.ferramenta = 'inicial'
 
     st.divider(width=600)
 
     #Barra de seleção de documento
     st.write('**Selecionar documento**')
+
+    #Seleção de coleção
     selecao = st.selectbox('Coleções disponíveis:', [colecao['display_name'] for colecao in colecoes], placeholder='Selecione a coleção', index=None, width=500)
-    if not st.session_state.selecao_colecao:
-        st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
-
-    if st.session_state.ferramenta == 'inicial':
-
-        if  st.session_state.selecao_colecao:
-            collection = client[db_name][st.session_state.selecao_colecao]
-            documentos = [doc for doc in collection.distinct('titulo')]
-            titulo_doc = st.selectbox('Selecione o documento',documentos, placeholder='Selecione o documento', index=None, width=500)
+    st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
+    if  st.session_state.selecao_colecao:
+        st.session_state.doc_selecionado = None
+        collection = client[db_name][st.session_state.selecao_colecao]
+        documentos = [doc for doc in collection.distinct('titulo')]
+        titulo_doc = st.selectbox('Selecione o documento',documentos, placeholder='Selecione o documento', index=None, width=500)
+        if not st.session_state.doc_selecionado:
             st.session_state.doc_selecionado = collection.find_one({'titulo':titulo_doc})
-            if st.session_state.doc_selecionado:
-                st.session_state.pop('docs_cache', None)
-                st.session_state.documento_selecionado = True
-                st.session_state.ferramenta = 'selecao'
-            elif st.session_state.selecao_colecao:
-                st.info('Selecione um documento.', width=500)
+            st.session_state.ferramenta = 'selecao'
 
                 
 if st.session_state.ferramenta == 'inicial':
@@ -235,11 +255,10 @@ if st.session_state.ferramenta == 'inicial':
         st.markdown(file.read())
     
 def selecionar_por_busca(doc):
-    st.session_state.pop('doc_selecionado', None)
     st.session_state.pop('docs_cache', None)
-    st.session_state.documento_selecionado = True
-    st.session_state.ferramenta = 'selecao'
+    st.session_state.doc_selecionado = None
     st.session_state.doc_selecionado = doc  # guarda o documento escolhido
+    st.session_state.ferramenta = 'selecao'
 
 if st.session_state.ferramenta == 'busca':
     for doc in st.session_state.resultado:
@@ -257,23 +276,22 @@ if st.session_state.ferramenta == 'busca':
             )
                 
             
-
+def voltar_busca():
+    st.session_state.ferramenta = 'busca'
 
 if st.session_state.ferramenta == 'selecao':
     if st.session_state.selecao_colecao:
         collection = st.session_state.selecao_colecao
-    else:
-        st.stop()
     if st.session_state.doc_selecionado:
          selecao_doc = st.session_state.doc_selecionado['titulo']
     else:
         st.stop()
     documento = st.session_state.doc_selecionado
     texto = documento['html']
-    st.caption(f'{selecao} > {selecao_doc}')
-    st.header(documento['titulo'])
+    st.caption(f'{st.session_state.selecao_colecao} > {selecao_doc}')
+    st.header(documento['titulo'].upper())
     st.table(
-            {'Título': documento['titulo'].replace('.', ' ').title(),
+            {'Título': documento['titulo'].replace('.', ' ').upper(),
             'Data de publicação': documento['data_publicacao'],
             'categoria':documento['categoria'].replace('.', ' ').title(),
             'Ementa':documento['ementa'],
@@ -283,17 +301,37 @@ if st.session_state.ferramenta == 'selecao':
             width='content'
         )
 
-    aba_texto, aba_listar, aba_atualizar, aba_excluir = st.tabs(
-        ["📖 Texto Integral", "📋 Listar", "✏️ Atualizar", "🗑️ Excluir"]
+if st.session_state.ferramenta == 'busca':
+    st.button('Voltar', on_click=voltar_busca)
+
+if st.session_state.ferramenta == 'selecao':
+    aba_texto, aba_referencias, aba_listar, aba_atualizar, aba_excluir = st.tabs(
+        ["📖 Texto Integral", "🔗Referências", "📋 Listar", "✏️ Atualizar", "🗑️ Excluir"]
     )
 
     # --- TEXTO ----
+    ## TODO -> Ver como exibir imagem em base64
     with aba_texto:
         with st.container():
             st.markdown(texto, unsafe_allow_html=True)
-           
+
+    # --- REFERÊNCIAS ----
+    ## TODO -> Linkar referência ao documento no banco
+
+    with aba_referencias:
+        for referencia in documento['documentos_referenciados']:
+            st.markdown(f'**{referencia['referencia'].upper()}**')
+            st.table({
+                'Tipo':referencia['tipo'],
+                'Numero':referencia['numero'],
+                'Órgão':referencia['orgao'],
+                'Data de publicação':referencia['data_publicacao']
+            }, width='content', )
+        st.write(documento['documentos_referenciados'])
 
     # --- BUSCA ---
+    ## TODO -> Busca textual dentro do doc
+
     def busca():
         with aba_busca:
             resultado = buscar_texto(busca)
