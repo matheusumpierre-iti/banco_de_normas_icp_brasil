@@ -261,20 +261,23 @@ def selecionar_por_busca(doc):
     st.session_state.ferramenta = 'selecao'
 
 if st.session_state.ferramenta == 'busca':
-    for doc in st.session_state.resultado:
+    def busca_v2(i:int, doc):
+        key = i
         with st.container(border=False, width='stretch'):
             identificador = doc['titulo']
-            st.subheader(identificador)
             indice_busca = doc['texto_completo'].lower().find(texto_busca.lower())
-            destaque_busca = doc['texto_completo'][indice_busca-250:indice_busca+250]
-            st.button(
-                f"**{doc['titulo']}**\n\n{doc['data_publicacao']}\n\n'{destaque_busca}','...'",
-                use_container_width=True,
-                key=f"btn_{doc['titulo']}",  # veja o ponto 2 abaixo
-                on_click=selecionar_por_busca,
-                args=(doc,),
-            )
-                
+            destaque_busca = doc['texto_completo'][indice_busca-250:indice_busca+250],
+            with st.container(horizontal=True):
+                tabela_busca = {
+                        'Titulo':f'**{identificador}**'.upper(),
+                        'Resultado da busca':destaque_busca,
+                        }
+                st.table(border=False, data=tabela_busca, height=200)
+                st.button(key=f'botao_{key}',label='Abrir Documento', on_click=selecionar_por_busca, args=(doc,))
+
+    for i, doc in enumerate(st.session_state.resultado):
+        busca_v2(i, doc)
+
             
 def voltar_busca():
     st.session_state.ferramenta = 'busca'
@@ -297,7 +300,6 @@ if st.session_state.ferramenta == 'selecao':
             'Ementa':documento['ementa'],
             'URN':documento['urn']},
             
-
             width='content'
         )
 
@@ -333,14 +335,9 @@ if st.session_state.ferramenta == 'selecao':
     ## TODO -> Busca textual dentro do doc
 
     def busca():
-        with aba_busca:
-            resultado = buscar_texto(busca)
-            for doc in resultado:
-                with st.container(border=True):
-                    st.subheader(doc.get('texto'))
-                    if doc.get('subtopicos'):
-                        st.write([(subtopico['numero'], subtopico['texto']) for subtopico in doc['subtopicos']])
-                
+        pass
+        
+
     # --- LISTAR ---
     with aba_listar:
         lista_dispositivos = documento['dispositivos']
