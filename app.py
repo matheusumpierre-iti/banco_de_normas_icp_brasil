@@ -266,7 +266,7 @@ if st.session_state.ferramenta == 'busca':
         with st.container(border=False, width='stretch'):
             identificador = doc['titulo']
             indice_busca = doc['texto_completo'].lower().find(texto_busca.lower())
-            destaque_busca = doc['texto_completo'][indice_busca-250:indice_busca+250],
+            destaque_busca = doc['texto_completo'][indice_busca-150:indice_busca+150].replace(texto_busca, f'**{texto_busca}**'),
             with st.container(horizontal=True):
                 tabela_busca = {
                         'Titulo':f'**{identificador}**'.upper(),
