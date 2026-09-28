@@ -239,15 +239,38 @@ if st.session_state.logado:
     #Seleção de coleção
     selecao = st.selectbox('Coleções disponíveis:', [colecao['display_name'] for colecao in colecoes], placeholder='Selecione a coleção', index=None, width=500)
     st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
-    if  st.session_state.selecao_colecao:
-        st.session_state.doc_selecionado = None
-        collection = client[db_name][st.session_state.selecao_colecao]
-        documentos = [doc for doc in collection.distinct('titulo')]
-        titulo_doc = st.selectbox('Selecione o documento',documentos, placeholder='Selecione o documento', index=None, width=500)
-        if not st.session_state.doc_selecionado:
-            st.session_state.doc_selecionado = collection.find_one({'titulo':titulo_doc})
-            st.session_state.ferramenta = 'selecao'
 
+    def selecao_dropdown():
+        if  st.session_state.selecao_colecao:
+            st.session_state.doc_selecionado = None
+            collection = client[db_name][st.session_state.selecao_colecao]
+            documentos = [doc for doc in collection.distinct('titulo')]
+            titulo_doc = st.selectbox('Selecione o documento',documentos, placeholder='Selecione o documento', index=None, width=500)
+            if not st.session_state.doc_selecionado:
+                st.session_state.doc_selecionado = collection.find_one({'titulo':titulo_doc})
+                st.session_state.ferramenta = 'selecao'
+    
+    def selecao_tabela():
+
+        def selecionar_linha(titulo): 
+            collection = client[db_name][st.session_state.selecao_colecao]
+            documentos = [doc for doc in collection.distinct(titulo)]
+
+        if st.session_state.selecao_colecao:
+            st.session_state.doc_selecionado = None 
+            collection = client[db_name][st.session_state.selecao_colecao]
+            documentos = [(i, doc) for (i, doc) in enumerate(collection.distinct('titulo'))]
+            st.subheader(f'{st.session_state.selecao_colecao.replace('_',' ').title()}')
+            tabela = []
+            for i, doc in enumerate(collection.find()):
+                dados_tabela = {
+                    'Título':f'{doc['titulo'].upper()}',
+                    'Data de publicação':doc['data_publicacao'],
+                    'Ementa':doc['ementa']
+                }
+                tabela.append(dados_tabela)
+            tabela = st.dataframe(tabela, width='stretch', on_select=selecionar_linha, selection_mode='single-row')
+    selecao_tabela()
                 
 if st.session_state.ferramenta == 'inicial':
     st.divider(width=600)
@@ -272,7 +295,7 @@ if st.session_state.ferramenta == 'busca':
                         'Titulo':f'**{identificador}**'.upper(),
                         'Resultado da busca':destaque_busca,
                         }
-                st.table(border=False, data=tabela_busca, height=200)
+                st.table(border=True, data=tabela_busca, height=150)
                 st.button(key=f'botao_{key}',label='Abrir Documento', on_click=selecionar_por_busca, args=(doc,))
 
     for i, doc in enumerate(st.session_state.resultado):
