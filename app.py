@@ -33,6 +33,9 @@ def get_client(uri: str) -> MongoClient:
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
+if 'coletanea' not in st.session_state:
+    st.session_state.coletanea = []
+
 if 'modo' not in st.session_state:
     st.session_state.modo = None
 
@@ -67,7 +70,6 @@ def conectar(db_user, db_pass, sufixo_uri):
                 st.sidebar.error(f"Erro ao conectar: {e}")
                 
                 
-
 
 def login():
     with st.sidebar:
@@ -288,7 +290,13 @@ if st.session_state.modo == 'busca':
 
                 
     def voltar_busca():
-        st.session_state.ferramenta = 'busca'
+        st.session_state.ferramenta = 'busca' 
+
+    if st.session_state.ferramenta == 'busca':
+        st.button('Voltar', on_click=voltar_busca)
+    
+
+    #Após seleção do documento para exibição
 
     if st.session_state.ferramenta == 'selecao':
         if st.session_state.selecao_colecao:
@@ -311,10 +319,18 @@ if st.session_state.modo == 'busca':
                 width='content'
             )
 
-    if st.session_state.ferramenta == 'busca':
-        st.button('Voltar', on_click=voltar_busca)
+        #Adicionar à coletânea
+        def adicionar_doc_coletanea():
+            if st.session_state.doc_selecionado:
+                st.session_state.coletanea.append(st.session_state.doc_selecionado)
 
-    if st.session_state.ferramenta == 'selecao':
+        botao_adicionar = st.button(label='Adicionar', on_click=adicionar_doc_coletanea)
+        if botao_adicionar:
+            st.info('Documento adicionado à coletânea!')
+        
+
+        #ABAS
+
         aba_texto, aba_referencias, aba_listar, aba_atualizar, aba_excluir = st.tabs(
             ["📖 Texto Integral", "🔗Referências", "📋 Listar", "✏️ Atualizar", "🗑️ Excluir"]
         )
@@ -353,7 +369,11 @@ if st.session_state.modo == 'busca':
             linhas = evento.selection.rows
             if linhas:
                 linha = df.iloc[linhas[0]]
-    
+
+#Modo -> Minhas coletâneas
+if st.session_state.modo == 'minhas_coletaneas':
+    def exibir_coletaneas():
+        pass
     
 #Modo -> Upload
 if st.session_state.modo == 'upload':
