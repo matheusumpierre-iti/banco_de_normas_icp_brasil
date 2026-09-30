@@ -36,8 +36,8 @@ if 'logado' not in st.session_state:
 if 'tabela_docs' not in st.session_state:
     st.session_state.tabela_docs = None
 
-if 'coletanea' not in st.session_state:
-    st.session_state.coletanea = []
+if 'coletaneas' not in st.session_state:
+    st.session_state.coletaneas = []
 
 if 'modo' not in st.session_state:
     st.session_state.modo = None
@@ -122,7 +122,8 @@ with st.sidebar:
         'Sobre':'sobre',
         'Busca':'busca',
         'Edição':'edicao',
-        'Upload':'upload'
+        'Upload':'upload',
+        'Minhas Coletâneas':'minhas_coletaneas'
     }
     selecao_modo = st.selectbox('Selecione o modo:', options=modos)
     st.session_state.modo = modos[selecao_modo]
@@ -178,24 +179,7 @@ def selecionar_celula(tabela, linhas_selecionadas):
 
 
 
-def busca_textual(texto_busca:str, colecao = 'instrucoes_normativas'):
-    query = texto_busca
-    st.session_state.pop('docs_cache',None)
-    st.session_state.pop('doc_selecionado', None)
-    st.session_state.termo_busca = texto_busca
-    db = 'atos_normativos'
-    collection = colecao
-    resultado = client[db][collection].aggregate([{
-                    "$search":{
-                        "index":"busca_textual",
-                        "text":{
-                            "query":query,
-                            "path":"texto_completo"
-                        }},
-                        }])
-    st.session_state.resultado = list(resultado)
-    st.session_state.ferramenta = 'busca'
-    st.session_state.selecao_colecao = colecao
+
 
 def limpar_selecao_documento():
     st.session_state.pop('doc_selecionado',None)
@@ -203,7 +187,7 @@ def limpar_selecao_documento():
     st.session_state.ferramenta = 'inicial'
 
 def selecao_tabela_busca(termo_busca:str):
-
+    pass
     if st.session_state.selecao_colecao:
         st.session_state.doc_selecionado = None 
         collection = client[db_name][st.session_state.selecao_colecao]
@@ -242,19 +226,11 @@ if st.session_state.modo == 'busca':
         client = get_client(st.session_state.uri)
         meta = client['atos_normativos'].get_collection('meta')
         colecoes = [colecao for colecao in meta.distinct('colecoes')]
-        #colecoes = meta_colecoes.distinct('colecoes')
+        st.session_state.colecoes_disponiveis = [colecao['id'] for colecao in colecoes]
         db_name = 'atos_normativos'
         st.divider()
 
-        # Alterna para o modo Busca se a barra de busca é preenchida
-        texto_busca = st.text_input('Busca no acervo normativo', key='texto_busca_acervo', width=500,type='search')
-        with st.container(horizontal=True):
-            buscar_acervo = st.button('Buscar', on_click=busca_textual, kwargs=({'texto_busca':texto_busca}))
-            limpar_busca = st.button('Limpar', on_click=limpar_selecao_documento)
-        if not texto_busca:
-            st.session_state.ferramenta = 'inicial'
-
-        st.divider(width=600)
+       
 
         #Barra de seleção de documento
         st.write('**Listar documentos**')
@@ -262,17 +238,28 @@ if st.session_state.modo == 'busca':
         #Seleção de coleção
         def selecionar_colecao(selecao:str):
             st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
+            st.session_state.ferramenta = 'listar_colecao'
 
         def limpar_selecao_colecao():
+            st.session_state.ferramenta = 'inicial'
             st.session_state['selecionar_colecao'] = None
+            st.session_state['texto_busca_acervo'] = None
 
-        selecao = st.selectbox('Coleções disponíveis:', [colecao['display_name'] for colecao in colecoes], placeholder='Selecione a coleção', index=None, width=500, key='selecionar_colecao')
-        with st.container(horizontal=True):
-            selecionar = st.button('Listar', key='listar_colecoes', on_click=selecionar_colecao, args=(selecao,))
-            limpar = st.button('Limpar', key='limpar_colecoes', on_click=limpar_selecao_colecao)
+        with st.container():
+            selecao = st.selectbox('Coleções disponíveis:', [colecao['display_name'] for colecao in colecoes], placeholder='Selecione a coleção', index=None, width=500, key='selecionar_colecao')
 
-        st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
-    
+            with st.container(horizontal=True):
+                selecionar = st.button('Listar', key='listar_colecoes', on_click=selecionar_colecao, args=(selecao,))
+                limpar = st.button('Limpar', key='limpar_colecoes', on_click=limpar_selecao_colecao)
+
+            st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
+        
+            st.divider(width=600)   
+
+        def definir_termo_busca(termo_busca):
+            st.session_state.termo_busca = termo_busca
+            st.session_state.ferramenta = 'busca'
+
         #Obter dados para tabela a partir de lista completa de coleção
         def dados_lista_colecao():
             st.session_state.doc_selecionado = None 
@@ -290,93 +277,94 @@ if st.session_state.modo == 'busca':
             return dados 
 
         #Obter dados para a tabela a partir de busca
-        def dados_busca_colecao(termo_busca, colecao='instrucoes_normativas'):
-            query = termo_busca 
+        def dados_busca_colecao(colecao='instrucoes_normativas'):
+            query = st.session_state.termo_busca
             st.session_state.pop('docs_cache',None)
             st.session_state.pop('doc_selecionado', None)
             st.session_state.termo_busca = texto_busca
             db = 'atos_normativos'
-            collection = colecao
-            resultado = client[db][collection].aggregate([{
-                            "$search":{
-                                "index":"busca_textual",
-                                "text":{
-                                    "query":query,
-                                    "path":"texto_completo"
-                                }},
-                                }])
-        
+            resultado = []
+            for colecao in st.session_state.colecoes_disponiveis:
+                busca_colecao = client[db][colecao].aggregate([{
+                                "$search":{
+                                    "index":"busca_textual",
+                                    "text":{
+                                        "query":query,
+                                        "path":"texto_completo"
+                                    }},
+                                    }])
+                resultado.append([resultado for resultado in busca_colecao])
+            
             st.session_state.doc_selecionado = None 
-            collection = client[db_name][st.session_state.selecao_colecao]
-            st.subheader(f'{st.session_state.selecao_colecao.replace('_',' ').title()}')
+            st.subheader('Busca no acervo')
             dados = []
-            for doc in resultado: 
-                dados_tabela = {
-                    'Título':f'{doc['titulo'].upper()}',
-                    'Data de publicação':doc['data_publicacao'],
-                    'Ementa':doc['ementa'],
-                    'URN':doc['urn']
-                }
-                dados.append(dados_tabela)
+            for colecao in resultado:
+                for doc in colecao:
+                    dados_tabela = {
+                        'Título':f'{doc['titulo'].upper()}',
+                        'Data de publicação':doc['data_publicacao'],
+                        'Ementa':doc['ementa'],
+                        'URN':doc['urn']
+                    }
+                    dados.append(dados_tabela)
+            st.session_state.ferramenta = 'busca'
             return dados
-       
+
+        def voltar_busca():
+            st.session_state.termo_busca = None
+            st.session_state.ferramenta = 'inicial' 
+
+
         #Exibir tabela (dataframe) a partir de dados de busca ou seleção
-        def exibir_tabela_docs(dados: list):
+        def exibir_tabela_docs(dados: list, colecao='instrucoes_normativas'):
             df = pd.DataFrame(dados)
             evento = st.dataframe(df, on_select='rerun',selection_mode='single-row',hide_index=True)
             linhas = evento.selection.rows
             if linhas:
+
                 linha = df.iloc[linhas[0]]
                 urn = linha['URN']
-                st.session_state.doc_selecionado = collection.find_one({'urn':urn})
+                st.session_state.doc_selecionado = client['atos_normativos'][f'{colecao}'].find_one({'urn':urn})
                 st.session_state.ferramenta = 'selecao'
 
-    #Determina fonte de dados para a tabela
-    if dados_busca_colecao:
+        #Adicionar à coletânea
+
+        def adicionar_doc_coletanea():
+
+            with campo_adicionar:
+
+                def confirmar_adicao():
+                    for coletanea in st.session_state.coletaneas:
+                        if coletanea['Nome'] == selecionar_coletanea:
+                            coletanea['Normas'].append(st.session_state.doc_selecionado)
+                            st.info(f'Documento {st.session_state.doc_selecionado['titulo']} adicionado à coletânea {selecionar_coletanea}')
+
+                selecionar_coletanea = st.selectbox('Selecione a coletânea:', options=[coletanea['Nome'] for coletanea in st.session_state.coletaneas])
+                botao_confirmar = st.button('Confirmar', on_click=confirmar_adicao, key=f'adicionar_colecao_a_coletanea_{selecionar_coletanea}')
+                    
+        #Widget de busca
+        with st.container():
+            texto_busca = st.text_input('Busca no acervo normativo', key='texto_busca_acervo', width=500,type='search')
+            with st.container(horizontal=True):
+                buscar_acervo = st.button('Buscar', on_click=definir_termo_busca, kwargs=({'termo_busca':texto_busca}))
+                limpar_busca = st.button('Limpar', on_click=limpar_selecao_documento)
+            if not texto_busca:
+                st.session_state.pop('termo_busca', None)
+            
+            #Determina fonte de dados para a tabela
+    if st.session_state.ferramenta == 'busca':
         dados = dados_busca_colecao()        
-    elif st.session_state.selecao_colecao:
+    elif st.session_state.ferramenta == 'listar_colecao':
         dados = dados_lista_colecao()
     else:
         dados = []
     
-    if dados:
-        exibir_tabela_docs(dados)
+    with st.container(): 
+        if dados:
+            exibir_tabela_docs(dados)
 
-    def selecionar_por_busca(doc):
-        st.session_state.pop('docs_cache', None)
-        st.session_state.doc_selecionado = None
-        st.session_state.doc_selecionado = doc  # guarda o documento escolhido
-        st.session_state.ferramenta = 'selecao'
-
-    if st.session_state.ferramenta == 'busca':
-        def busca_v2(i:int, doc):
-            limpar_selecao_documento()
-            key = i
-            with st.container(border=False, width='stretch'):
-                identificador = doc['titulo']
-                indice_busca = doc['texto_completo'].lower().find(texto_busca.lower())
-                destaque_busca = doc['texto_completo'][indice_busca-150:indice_busca+150].replace(texto_busca, f'**{texto_busca}**'),
-                with st.container(horizontal=True):
-                    tabela_busca = {
-                            'Titulo':f'**{identificador}**'.upper(),
-                            'Resultado da busca':destaque_busca,
-                            }
-                    st.table(border=True, data=tabela_busca, height=150)
-                    st.button(key=f'botao_{key}',label='Abrir Documento', on_click=selecionar_por_busca, args=(doc,))
-
-        for i, doc in enumerate(st.session_state.resultado):
-            busca_v2(i, doc)
-
-                
-    def voltar_busca():
-        st.session_state.ferramenta = 'busca' 
-
-    if st.session_state.ferramenta == 'busca':
-        st.button('Voltar', on_click=voltar_busca)
-    
-    #Exibe tabela com busca ou lista da coleção:
-    if st.session_state.tabela_docs:
-        pass
+        if st.session_state.ferramenta == 'busca':
+            st.button('Voltar', on_click=voltar_busca)
 
     #Após seleção do documento para exibição
 
@@ -390,31 +378,31 @@ if st.session_state.modo == 'busca':
         documento = st.session_state.doc_selecionado
         texto = documento['html']
         st.caption(f'{st.session_state.selecao_colecao} > {selecao_doc}')
-        st.header(documento['titulo'].upper())
-        st.table(
-                {'Título': documento['titulo'].replace('.', ' ').upper(),
-                'Data de publicação': documento['data_publicacao'],
-                'categoria':documento['categoria'].replace('.', ' ').title(),
-                'Ementa':documento['ementa'],
-                'URN':documento['urn']},
-                
-                width='content'
-            )
+        with st.container():
+            st.header(documento['titulo'].upper())
+            st.table(
+                    {'Título': documento['titulo'].replace('.', ' ').upper(),
+                    'Data de publicação': documento['data_publicacao'],
+                    'categoria':documento['categoria'].replace('.', ' ').title(),
+                    'Ementa':documento['ementa'],
+                    'URN':documento['urn']},
+                    
+                    width='content'
+                )
 
-        #Adicionar à coletânea
-        def adicionar_doc_coletanea():
-            if st.session_state.doc_selecionado:
-                st.session_state.coletanea.append(st.session_state.doc_selecionado)
+            campo_adicionar = st.container()
 
-        botao_adicionar = st.button(label='Adicionar', on_click=adicionar_doc_coletanea)
-        if botao_adicionar:
-            st.info('Documento adicionado à coletânea!')
-        
+            with campo_adicionar: 
+                botao_adicionar = st.button(label='Adicionar', on_click=adicionar_doc_coletanea)
+                    
+
+
+       
 
         #ABAS
 
-        aba_texto, aba_referencias, aba_listar, aba_atualizar, aba_excluir = st.tabs(
-            ["📖 Texto Integral", "🔗Referências", "📋 Listar", "✏️ Atualizar", "🗑️ Excluir"]
+        aba_texto, aba_referencias, aba_listar= st.tabs(
+            ["📖 Texto Integral", "🔗Referências", "📋 Listar"]
         )
 
         # --- TEXTO ----
@@ -454,9 +442,49 @@ if st.session_state.modo == 'busca':
 
 #Modo -> Minhas coletâneas
 if st.session_state.modo == 'minhas_coletaneas':
-    def exibir_coletaneas():
+    st.subheader('Minhas Coletâneas')
+    aba_nova_coletanea, aba_ver_coletaneas = st.tabs(['Nova Coletânea', 'Ver Coletâneas'])
+
+    def criar_coletanea(nome_coletanea, descricao_coletanea):
+        coletanea = {
+            'Nome':nome_coletanea,
+            'Descrição':descricao_coletanea,
+            'Normas':[]
+            }
+
+        coletaneas = [col['Nome'] for col in st.session_state.coletaneas]
+
+        if coletanea['Nome'] in coletaneas:
+            st.warning(f'Coletânea chamada {coletanea['Nome']} já existe, escolha um nome diferente.')
+        else:
+            st.session_state.coletaneas.append(coletanea)
+            st.info('Coletânea criada com sucesso! Acesse a aba **Ver Coletâneas** ou use o modo de **Busca** para adicionar documentos.') 
+
+    with aba_nova_coletanea:
+        nome_coletanea = st.text_input('Nome da coletânea:')
+        descricao_coletanea = st.text_input('Descrição:')
+
+        if nome_coletanea and descricao_coletanea:
+            criar = st.button('Criar', key='botao_criar_coletanea', on_click=criar_coletanea, args=(nome_coletanea, descricao_coletanea), disabled=False)
+        else:
+            criar = st.button('Criar', key='botao_criar_coletanea', on_click=criar_coletanea, args=(nome_coletanea, descricao_coletanea), disabled=True)
+
+    with aba_ver_coletaneas:
+        for coletanea in st.session_state.coletaneas:
+            st.table([f'##### **{coletanea['Nome']}**', coletanea['Descrição']])
+            with st.container(horizontal=True):
+                st.button('Exportar em JSON', key=f'json_{coletanea['Nome']}')
+                st.button('Exportar em HTML', key=f'html_{coletanea['Nome']}')
+                st.button('Excluir coletânea', key=f'excluir_{coletanea['Nome']}', type='tertiary')
+
+            st.write('**Documentos da coletânea:**')
+            if len(coletanea['Normas']) == 0:
+                st.info('Sua coletânea ainda está vazia. Utilize o modo de **Busca** para adicionar documentos.')
+            else:
+                st.dataframe([norma for norma in coletanea['Normas']], height=150)
+
+            st.divider()
         
-        pass
     
 #Modo -> Upload
 if st.session_state.modo == 'upload':
