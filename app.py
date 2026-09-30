@@ -33,6 +33,9 @@ def get_client(uri: str) -> MongoClient:
 if 'logado' not in st.session_state:
     st.session_state.logado = False
 
+if 'dados_tabela' not in st.session_state:
+    st.session_state.dados_tabela = None 
+
 if 'tabela_docs' not in st.session_state:
     st.session_state.tabela_docs = None
 
@@ -153,39 +156,13 @@ def serializar(doc: dict) -> dict:
             out[k] = v
     return out
 
-def expandir_celula(valor):
-    """
-    Recebe o conteúdo de uma célula. Se for uma lista de objetos (dicts),
-    retorna um novo DataFrame com um objeto por linha.
-    Caso contrário, retorna None.
-    """
-    if 1==1:
-        pass
-    if isinstance(valor, list) and len(valor) > 0 and isinstance(valor[0], dict):
-        return pd.DataFrame(valor)
-    return None
-
-def expandir_texto(valor):
-    if isinstance(valor, str) and len(valor) > 0:
-        pass
-
-def selecionar_celula(tabela, linhas_selecionadas):
-    linha_idx, coluna_nome = linhas_selecionadas[0]
-    df = pd.DataFrame(tabela)
-    valor_celula = df.iloc[linha_idx][coluna_nome]
-    df_expandido = expandir_celula(valor_celula)
-    tabela_subtopico = st.dataframe(df_expandido, width='stretch', on_select='rerun', selection_mode='single-cell')
-    return tabela_subtopico
-
-
-
-
-
 def limpar_selecao_documento():
     st.session_state.pop('doc_selecionado',None)
     st.session_state.pop('selecao_colecao', None)
+    st.session_state.pop('dados_tabela', None)
     st.session_state.ferramenta = 'inicial'
 
+@st.cache_data
 def selecao_tabela_busca(termo_busca:str):
     pass
     if st.session_state.selecao_colecao:
@@ -242,6 +219,7 @@ if st.session_state.modo == 'busca':
 
         def limpar_selecao_colecao():
             st.session_state.ferramenta = 'inicial'
+            st.session_state.pop('dados_tabela', None)
             st.session_state['selecionar_colecao'] = None
             st.session_state['texto_busca_acervo'] = None
 
@@ -262,7 +240,6 @@ if st.session_state.modo == 'busca':
 
         #Obter dados para tabela a partir de lista completa de coleção
         def dados_lista_colecao():
-            st.session_state.doc_selecionado = None 
             collection = client[db_name][st.session_state.selecao_colecao]
             st.subheader(f'{st.session_state.selecao_colecao.replace('_',' ').title()}')
             dados = []
@@ -279,8 +256,6 @@ if st.session_state.modo == 'busca':
         #Obter dados para a tabela a partir de busca
         def dados_busca_colecao(colecao='instrucoes_normativas'):
             query = st.session_state.termo_busca
-            st.session_state.pop('docs_cache',None)
-            st.session_state.pop('doc_selecionado', None)
             st.session_state.termo_busca = texto_busca
             db = 'atos_normativos'
             resultado = []
@@ -295,7 +270,6 @@ if st.session_state.modo == 'busca':
                                     }])
                 resultado.append([resultado for resultado in busca_colecao])
             
-            st.session_state.doc_selecionado = None 
             st.subheader('Busca no acervo')
             dados = []
             for colecao in resultado:
@@ -316,16 +290,29 @@ if st.session_state.modo == 'busca':
 
 
         #Exibir tabela (dataframe) a partir de dados de busca ou seleção
-        def exibir_tabela_docs(dados: list, colecao='instrucoes_normativas'):
-            df = pd.DataFrame(dados)
-            evento = st.dataframe(df, on_select='rerun',selection_mode='single-row',hide_index=True)
-            linhas = evento.selection.rows
-            if linhas:
+        def exibir_tabela_docs(colecao='instrucoes_normativas'):
+            if st.session_state.ferramenta == 'busca':
+                dados = dados_busca_colecao()        
+            elif st.session_state.ferramenta == 'listar_colecao':
+                dados = dados_lista_colecao()
+            elif st.session_state.dados_tabela:
+                dados = st.session_state.dados_tabela
+            else:
+                dados = []
 
-                linha = df.iloc[linhas[0]]
-                urn = linha['URN']
-                st.session_state.doc_selecionado = client['atos_normativos'][f'{colecao}'].find_one({'urn':urn})
-                st.session_state.ferramenta = 'selecao'
+            if dados:
+                st.session_state.dados_tabela = dados
+                df = pd.DataFrame(dados)
+                st.session_state.tabela_docs = df
+                evento = st.dataframe(df, on_select='rerun',selection_mode='single-row',hide_index=True)
+                linhas = evento.selection.rows
+                if linhas:
+                    linha = df.iloc[linhas[0]]
+                    urn = linha['URN']
+                    st.session_state.doc_selecionado = client['atos_normativos'][f'{colecao}'].find_one({'urn':urn})
+                    st.session_state.ferramenta = 'selecao'
+            else:
+                st.info('Selecione uma coleção ou faça uma busca para exibir documentos.')
 
         #Adicionar à coletânea
 
@@ -351,20 +338,11 @@ if st.session_state.modo == 'busca':
             if not texto_busca:
                 st.session_state.pop('termo_busca', None)
             
-            #Determina fonte de dados para a tabela
-    if st.session_state.ferramenta == 'busca':
-        dados = dados_busca_colecao()        
-    elif st.session_state.ferramenta == 'listar_colecao':
-        dados = dados_lista_colecao()
-    else:
-        dados = []
+    #Determina fonte de dados para a tabela
+    exibir_tabela_docs()
     
-    with st.container(): 
-        if dados:
-            exibir_tabela_docs(dados)
-
-        if st.session_state.ferramenta == 'busca':
-            st.button('Voltar', on_click=voltar_busca)
+    if st.session_state.ferramenta == 'busca':
+        st.button('Voltar', on_click=voltar_busca)
 
     #Após seleção do documento para exibição
 
