@@ -1,4 +1,6 @@
 import psycopg
+import json
+from pathlib import Path
 from psycopg.types.json import Jsonb
 from dotenv import dotenv_values
 
@@ -24,5 +26,5 @@ with conn:
 """)
     conn.commit()
 
-with conn:
-   pass 
+doc = json.dumps()
+
