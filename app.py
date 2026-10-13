@@ -5,6 +5,8 @@ import mammoth
 
 import streamlit as st
 from pymongo import MongoClient
+from psycopg import Connection
+from psycopg import connect
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
@@ -21,8 +23,8 @@ st.header('Banco de normas ICP-Brasil')
 # ==========================================================
 
 @st.cache_resource
-def get_client(uri: str) -> MongoClient:
-    return MongoClient(uri, serverSelectionTimeoutMS=5000)
+def get_client(uri: str) -> Connection:
+    return connect(uri)
 
 
 #-------------------------------------
@@ -45,6 +47,9 @@ if 'coletaneas' not in st.session_state:
 if 'modo' not in st.session_state:
     st.session_state.modo = None
 
+if 'colecoes_disponiveis' not in st.session_state:
+    st.session_state.colecoes_disoniveis = []
+
 if 'resultado' not in st.session_state:
     st.session_state.resultado = []
 
@@ -63,20 +68,22 @@ if 'db_user' not in st.session_state:
 if 'doc_selecionado' not in st.session_state:
     st.session_state.doc_selecionado = None
 
-def conectar(db_user, db_pass, sufixo_uri):
-            st.session_state.uri = f"mongodb+srv://{db_user}:{db_pass}@{sufixo_uri}"
+if 'conn' not in st.session_state:
+    st.session_state.conn = None
+
+def conectar(db_user, db_pass, db_host, db_port=5432):
+            st.session_state.uri = f"dbname=banco_icp user={db_user} password={db_pass} host={db_host} port={db_port}"
             client = get_client(st.session_state.uri)
-            try:
-                client.admin.command('ping')
-                st.session_state.logado = True
-                st.sidebar.success("Conectado com sucesso!")
-                st.session_state.db_user = db_user
-                st.session_state.db_pass = db_pass
-                st.session_state.sufixo_uri = sufixo_uri
-                st.rerun()
-            except Exception as e:
-                st.session_state.logado = False
-                st.sidebar.error(f"Erro ao conectar: {e}")
+            with client:
+                try:
+                    cursor = client.cursor('Cursor')
+                    cursor.execute('SELECT 1')
+                    st.session_state.logado = True
+                    st.session_state.db_user = db_user
+                    st.session_state.db_pass = db_pass
+                    st.session_state.db_host = db_host
+                except Exception as e:
+                    raise Exception('Erro ao conectar')
                 
                 
 
@@ -86,10 +93,11 @@ def login():
             st.header('Login no banco de dados')
             db_user = st.text_input('Usuário:', max_chars=50, type='default')
             db_pass = st.text_input('Senha:', max_chars=50, type='password')
-            sufixo_uri = st.text_input('Sufixo da URI do banco de dados (após o @):', max_chars=200, type='default')
+            host = st.text_input('Host do banco de dados:', max_chars=200, type='default')
+            porta = st.text_input('Porta do banco de dados:', max_chars=10, type='default', value='5432')
             logar = st.form_submit_button('Logar', width='stretch')
         if logar:
-            conectar(db_user=db_user, db_pass=db_pass, sufixo_uri=sufixo_uri)
+            st.session_state.conn = conectar(db_user=db_user, db_pass=db_pass, db_host=host)
             st.session_state.logado = True
 
 def desconectar():
@@ -200,22 +208,24 @@ if st.session_state.modo == 'sobre':
 #Modo -> Buscar
 if st.session_state.modo == 'busca':
     if st.session_state.logado:
-        client = get_client(st.session_state.uri)
-        meta = client['atos_normativos'].get_collection('meta')
-        colecoes = [colecao for colecao in meta.distinct('colecoes')]
-        st.session_state.colecoes_disponiveis = [colecao['id'] for colecao in colecoes]
-        db_name = 'atos_normativos'
-        st.divider()
-
-       
+        
+        st.divider() 
 
         #Barra de seleção de documento
         st.write('**Listar documentos**')
 
         #Seleção de coleção
-        def selecionar_colecao(selecao:str):
-            st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
-            st.session_state.ferramenta = 'listar_colecao'
+        def listar_colecoes():
+            client = connect(st.session_state.uri)
+            with client:
+                cursor = client.cursor()
+                cursor.execute("SELECT DISTINCT tipo_ato FROM atos_normativos;")
+                colecoes = [colecao[0] for colecao in cursor.fetchall()]
+                nomes_display = []
+                for colecao in colecoes:
+                    cursor.execute("SELECT DISTINCT nome_display FROM nome_colecao WHERE nome=%s", (colecao,))
+                    nomes_display.append(cursor.fetchall()[0][0])
+                    st.session_state.colecoes_disponiveis = nomes_display
 
         def limpar_selecao_colecao():
             st.session_state.ferramenta = 'inicial'
@@ -224,14 +234,27 @@ if st.session_state.modo == 'busca':
             st.session_state['texto_busca_acervo'] = None
 
         with st.container():
-            selecao = st.selectbox('Coleções disponíveis:', [colecao['display_name'] for colecao in colecoes], placeholder='Selecione a coleção', index=None, width=500, key='selecionar_colecao')
+            listar_colecoes()
+            selecao = st.selectbox('Coleções disponíveis:', st.session_state.colecoes_disponiveis, placeholder='Selecione a coleção', index=None, width=500, key='selecionar_colecao')
 
             with st.container(horizontal=True):
-                selecionar = st.button('Listar', key='listar_colecoes', on_click=selecionar_colecao, args=(selecao,))
+                selecionar = st.button('Listar', key='listar_colecoes', args=(selecao,))
                 limpar = st.button('Limpar', key='limpar_colecoes', on_click=limpar_selecao_colecao)
 
-            st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
-        
+            client = connect(st.session_state.uri)
+
+            if selecionar:
+                with client:
+                    cursor = client.cursor()
+                    st.session_state.selecao_colecao = cursor.execute(
+                                "SELECT" \
+                                " UPPER(dados->>'titulo') AS Título," \
+                                " dados->'urn' AS URN," \
+                                " dados->'ementa' AS Ementa" \
+                                " FROM atos_normativos AS a" \
+                                " INNER JOIN nome_colecao n" \
+                                " ON n.nome = a.tipo_ato WHERE n.nome_display = %s", (selecao,)
+                            )
             st.divider(width=600)   
 
         def definir_termo_busca(termo_busca):
