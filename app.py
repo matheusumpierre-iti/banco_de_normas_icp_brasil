@@ -214,7 +214,8 @@ if st.session_state.modo == 'busca':
 
         #Seleção de coleção
         def selecionar_colecao(selecao:str):
-            st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
+            meta = client['atos_normativos'].get_collection('meta')
+            dados_colecoes = meta.find_one()
             st.session_state.ferramenta = 'listar_colecao'
 
         def limpar_selecao_colecao():
@@ -230,7 +231,6 @@ if st.session_state.modo == 'busca':
                 selecionar = st.button('Listar', key='listar_colecoes', on_click=selecionar_colecao, args=(selecao,))
                 limpar = st.button('Limpar', key='limpar_colecoes', on_click=limpar_selecao_colecao)
 
-            st.session_state.selecao_colecao = [colecao['id'] if colecao['display_name'] == selecao else None for colecao in colecoes][0]
         
             st.divider(width=600)   
 
