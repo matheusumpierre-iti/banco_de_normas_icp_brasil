@@ -6,7 +6,7 @@ from subprocess import run
 from functools import lru_cache
 
 from db import pipeline_login
-from gerar_json_v2 import gerar_json
+from gerar_json_v3 import gerar_json
 from parser_lei import parse_lei
 from parser_tabelas import parse_tabelas_pdf
 from parser_topicos import parse_topicos
@@ -533,10 +533,13 @@ def processar_json_batch(pasta: str, pasta_json:str, local:bool = False, upload:
                     print(f'Processando item {item}...')
                     renomeado = item.removesuffix('.docx') + '.json'
                     caminho_item = fr'{pasta}/{item}'
-                    item_json = gerar_json(caminho_item)
-                    with open(fr'{pasta_json}/{renomeado}', mode='w', encoding='utf8') as file:
-                        file.write(json.dumps(item_json, ensure_ascii=False, indent=2))
-                    print(fr'JSON salvo em {pasta_json}/{renomeado}')
+                    try:
+                        item_json = gerar_json(caminho_item)
+                        with open(fr'{pasta_json}/{renomeado}', mode='w', encoding='utf8') as file:
+                            file.write(json.dumps(item_json, ensure_ascii=False, indent=2))
+                        print(fr'JSON salvo em {pasta_json}/{renomeado}')
+                    except:
+                        print('Ocorreu um erro')
         if upload:
             print('Iniciando upload de arquivos')
             db = 'atos_normativos'
@@ -551,5 +554,5 @@ def processar_json_batch(pasta: str, pasta_json:str, local:bool = False, upload:
                         except:
                             print('Erro ao enviar documento.')
 
-processar_json_batch('testes/batch','testes/batch/json', local=True, upload=True, colecao='instrucoes_normativas')
+processar_json_batch('upload/Resoluções','upload/Resoluções/json', local=True, colecao='resolucoes')
 

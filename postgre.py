@@ -32,14 +32,19 @@ def inserir_json(caminho_json, tipo_ato):
     with conn:
         cursor = conn.cursor()
         for arquivo in os.listdir(caminho_json):
+            if 'revogado' in arquivo.lower() or 'revogada' in arquivo.lower():
+                vigencia = False
+            else:
+                vigencia = True
             if arquivo.endswith('.json'):
                 with open(f'{caminho_json}/{arquivo}', encoding='utf8') as file:
                     arquivo_json = file.read()
                     urn = json.loads(arquivo_json)['urn']
+                    titulo = json.loads(arquivo_json)['titulo']
                 
                     cursor.execute("""
-                    INSERT INTO atos_normativos (ato_urn, tipo_ato, dados) VALUES (%s,%s, %s);
-                                    """, (urn, tipo_ato, arquivo_json,))
+                    INSERT INTO atos_normativos (urn_ato, tipo_ato, titulo_ato, vigencia_ato, dados) VALUES (%s,%s, %s,%s,%s);
+                                    """, (urn, tipo_ato, titulo, vigencia, arquivo_json,))
         conn.commit()
 
-#inserir_json('json', 'instrucao_normativa')
+inserir_json(r'upload\Resoluções\json', 'resolucao')
